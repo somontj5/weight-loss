@@ -39,6 +39,9 @@ dependencies:
   record: ^6.2.1
   audioplayers: ^6.7.1
   path_provider: ^2.1.5
+  http: 1.5.0
+  shared_preferences: 2.5.3
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +64,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/audio/
 
   fonts:
     - family: Nunito

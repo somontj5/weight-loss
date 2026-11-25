@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'providers/chat_provider.dart';
-import 'screens/chat_screen.dart';
+import 'providers/workout_hub.dart';
+import 'screens/home_shell.dart';
 import 'services/audio_playback.dart';
 import 'services/fitty_ai_service.dart';
 import 'theme/app_theme.dart';
@@ -30,12 +31,13 @@ class FittyApp extends StatelessWidget {
         // своей реализацией FittyAiService.
         ChangeNotifierProvider(create: (_) => ChatProvider(MockFittyAiService())),
         ChangeNotifierProvider(create: (_) => AudioPlayback()),
+        ChangeNotifierProvider(create: (_) => WorkoutHub()..load()),
       ],
       child: MaterialApp(
         title: 'Fitty Coach',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
-        home: const ChatScreen(),
+        home: const HomeShell(),
       ),
     );
   }

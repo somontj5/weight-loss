@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
-import '../controllers/workout_controller.dart';
-import '../models/workout.dart';
-import '../providers/workout_hub.dart';
-import '../services/workout_music.dart';
-import '../theme/app_theme.dart';
-import '../widgets/chunky_button.dart';
-import '../widgets/exercise_stage.dart';
-import '../widgets/timer_ring.dart';
-import 'workout_summary_screen.dart';
+import 'package:weightloss/controllers/workout_controller.dart';
+import 'package:weightloss/models/workout.dart';
+import 'package:weightloss/ui/providers/workout_hub.dart';
+import 'package:weightloss/services/workout_music.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/chunky_button.dart';
+import 'package:weightloss/ui/widgets/exercise_stage.dart';
+import 'package:weightloss/ui/widgets/timer_ring.dart';
+import 'package:weightloss/ui/screens/workout_summary_screen.dart';
 
 /// Экран выполнения тренировки.
 class WorkoutPlayerScreen extends StatefulWidget {

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
-import '../models/chat_message.dart';
+import 'package:weightloss/models/chat_message.dart';
 
 /// Запись голоса с живой амплитудой для анимации волн.
 class VoiceRecorder extends ChangeNotifier {

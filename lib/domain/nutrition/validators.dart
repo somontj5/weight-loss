@@ -1,4 +1,4 @@
-import 'nutrition_calculator.dart';
+import 'package:weightloss/domain/nutrition/nutrition_calculator.dart';
 
 /// Проверка чисел регистрации. Возвращает текст ошибки или null.
 class Validators {

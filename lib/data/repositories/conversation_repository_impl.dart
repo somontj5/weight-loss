@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
-import '../../domain/entities/stored_message.dart';
-import '../../domain/repositories/repositories.dart';
-import '../db/app_database.dart';
+import 'package:weightloss/domain/entities/stored_message.dart';
+import 'package:weightloss/domain/repositories/repositories.dart';
+import 'package:weightloss/data/db/app_database.dart';
 
 class ConversationRepositoryImpl implements ConversationRepository {
   ConversationRepositoryImpl(this._db, {DateTime Function()? clock})

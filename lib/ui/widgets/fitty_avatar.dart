@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
 
 /// Талисман Фитти — весёлое яблочко с листиком.
 class FittyAvatar extends StatelessWidget {

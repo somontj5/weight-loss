@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
 
 /// Круговой таймер с крупным числом секунд посередине.
 class TimerRing extends StatelessWidget {

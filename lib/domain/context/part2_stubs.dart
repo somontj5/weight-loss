@@ -1,5 +1,5 @@
-import '../entities/part2_entities.dart';
-import '../repositories/repositories.dart';
+import 'package:weightloss/domain/entities/part2_entities.dart';
+import 'package:weightloss/domain/repositories/repositories.dart';
 
 /// ЗАГЛУШКА под часть 2: дневник питания. Реализация на таблице
 /// diary_entries появится в части 2; ContextAssembler менять не придётся.

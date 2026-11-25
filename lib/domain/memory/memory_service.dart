@@ -1,5 +1,5 @@
-import '../entities/memory_fact.dart';
-import '../repositories/repositories.dart';
+import 'package:weightloss/domain/entities/memory_fact.dart';
+import 'package:weightloss/domain/repositories/repositories.dart';
 
 class MemoryApplyResult {
   const MemoryApplyResult({

@@ -15,6 +15,8 @@ class ContextConfig {
     this.summarizeWhenPending = 30,
     this.keepRecentRaw = 12,
     this.summaryMaxChars = 900,
+    this.summaryInputTokens = 1800,
+    this.summaryBatchMax = 40,
   });
 
   /// Потолок всего контекста (без системного промта характера).
@@ -41,6 +43,10 @@ class ContextConfig {
   /// Последние сообщения, которые никогда не сжимаются.
   final int keepRecentRaw;
   final int summaryMaxChars;
+
+  /// Сколько старых сообщений (в токенах и штуках) отдаём на сжатие за раз.
+  final int summaryInputTokens;
+  final int summaryBatchMax;
 
   static const defaults = ContextConfig();
 

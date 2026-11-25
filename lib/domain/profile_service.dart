@@ -1,7 +1,7 @@
-import 'entities/diet_plan.dart';
-import 'entities/profile.dart';
-import 'nutrition/nutrition_calculator.dart';
-import 'repositories/repositories.dart';
+import 'package:weightloss/domain/entities/diet_plan.dart';
+import 'package:weightloss/domain/entities/profile.dart';
+import 'package:weightloss/domain/nutrition/nutrition_calculator.dart';
+import 'package:weightloss/domain/repositories/repositories.dart';
 
 /// Сохраняет профиль и каждый раз пересчитывает цель и норму.
 class ProfileService {

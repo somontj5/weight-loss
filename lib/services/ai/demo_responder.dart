@@ -1,29 +1,14 @@
 import 'dart:math';
 
-import '../models/chat_message.dart';
 
-/// Контракт ИИ-коуча. Чтобы подключить настоящую модель (OpenAI, Gemini,
-/// свой бэкенд), достаточно написать другую реализацию и подставить её
-/// в main.dart — остальной код чата менять не нужно.
-abstract class FittyAiService {
-  Future<String> reply({
-    required String text,
-    required List<String> imagePaths,
-    Duration? audioDuration,
-    required List<ChatMessage> history,
-  });
-}
-
-/// Демо-реализация без сети: отвечает по ключевым словам.
-class MockFittyAiService implements FittyAiService {
+/// Демо-режим без ключа/сети: отвечает заготовками по ключевым словам.
+class DemoResponder {
   final _rnd = Random();
 
-  @override
   Future<String> reply({
     required String text,
     required List<String> imagePaths,
     Duration? audioDuration,
-    required List<ChatMessage> history,
   }) async {
     await Future<void>.delayed(
         Duration(milliseconds: 1100 + _rnd.nextInt(900)));

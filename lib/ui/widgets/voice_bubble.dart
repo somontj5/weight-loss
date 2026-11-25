@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/chat_message.dart';
-import '../services/audio_playback.dart';
-import '../theme/app_theme.dart';
-import 'static_waveform.dart';
+import 'package:weightloss/models/chat_message.dart';
+import 'package:weightloss/services/audio_playback.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/static_waveform.dart';
 
 String formatDuration(Duration d) {
   final m = d.inMinutes.remainder(60).toString();

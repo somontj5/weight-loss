@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
-import 'chat_screen.dart';
-import 'workout_screen.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/screens/chat_screen.dart';
+import 'package:weightloss/ui/screens/workout_screen.dart';
 
 /// Нижняя навигация. Сейчас два раздела: чат с Фитти и тренировки.
 /// «Диетолог» и «Зрение» добавятся сюда же отдельными вкладками.

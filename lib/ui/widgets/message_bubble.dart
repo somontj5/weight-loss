@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../models/chat_message.dart';
-import '../theme/app_theme.dart';
-import 'chat_image.dart';
-import 'fitty_avatar.dart';
-import 'image_viewer.dart';
-import 'voice_bubble.dart';
+import 'package:weightloss/models/chat_message.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/chat_image.dart';
+import 'package:weightloss/ui/widgets/fitty_avatar.dart';
+import 'package:weightloss/ui/widgets/image_viewer.dart';
+import 'package:weightloss/ui/widgets/voice_bubble.dart';
 
 class MessageBubble extends StatelessWidget {
   const MessageBubble({super.key, required this.message});

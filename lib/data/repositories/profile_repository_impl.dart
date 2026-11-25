@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
-import '../../domain/entities/diet_plan.dart';
-import '../../domain/entities/profile.dart';
-import '../../domain/repositories/repositories.dart';
-import '../db/app_database.dart';
+import 'package:weightloss/domain/entities/diet_plan.dart';
+import 'package:weightloss/domain/entities/profile.dart';
+import 'package:weightloss/domain/repositories/repositories.dart';
+import 'package:weightloss/data/db/app_database.dart';
 
 class ProfileRepositoryImpl implements ProfileRepository {
   ProfileRepositoryImpl(this._db, {DateTime Function()? clock})

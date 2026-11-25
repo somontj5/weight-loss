@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart';
 
-import '../../domain/entities/memory_fact.dart';
-import '../../domain/repositories/repositories.dart';
-import '../db/app_database.dart';
+import 'package:weightloss/domain/entities/memory_fact.dart';
+import 'package:weightloss/domain/repositories/repositories.dart';
+import 'package:weightloss/data/db/app_database.dart';
 
 class MemoryRepositoryImpl implements MemoryRepository {
   MemoryRepositoryImpl(this._db);

@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../config/api_config.dart';
-import '../models/user_profile.dart';
-import '../models/workout.dart';
-import '../models/workout_session.dart';
-import '../services/calorie_calc.dart';
-import '../services/fitness_coach_service.dart';
+import 'package:weightloss/config/api_config.dart';
+import 'package:weightloss/domain/entities/profile.dart';
+import 'package:weightloss/models/user_profile.dart';
+import 'package:weightloss/models/workout.dart';
+import 'package:weightloss/models/workout_session.dart';
+import 'package:weightloss/services/calorie_calc.dart';
+import 'package:weightloss/services/fitness_coach_service.dart';
 
 /// Единое состояние раздела «Тренировка»: профиль, съеденные калории,
 /// текущий план от ИИ и история тренировок.
@@ -94,6 +95,39 @@ class WorkoutHub extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) debugPrint('WorkoutHub.save error: $e');
     }
+  }
+
+  /// Профиль для тренировок берётся из регистрации (единый источник правды).
+  void syncFromProfile(Profile p) {
+    _profile = UserProfile(
+      female: p.female,
+      age: p.ageAt(DateTime.now()),
+      weightKg: p.weightKg,
+      heightCm: p.heightCm,
+      waistCm: p.waistCm,
+      chestCm: p.chestCm,
+      hipsCm: p.hipsCm,
+      level: _profile.level,
+      configured: true,
+    );
+    _minutes = p.trainingMinutes;
+    notifyListeners();
+    _save(_kProfile, _profile.toJson());
+  }
+
+  /// Удаление всех данных тренировок (кнопка в настройках).
+  Future<void> resetAll() async {
+    _profile = const UserProfile();
+    _workout = null;
+    _history.clear();
+    _caloriesEaten = 0;
+    _minutes = 20;
+    _notice = null;
+    notifyListeners();
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.clear();
+    } catch (_) {}
   }
 
   void updateProfile(UserProfile p) {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../data/exercise_catalog.dart';
-import '../theme/app_theme.dart';
-import 'fitty_avatar.dart';
+import 'package:weightloss/data/exercise_catalog.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/fitty_avatar.dart';
 
 /// Сцена для 3D-анимации упражнения.
 ///

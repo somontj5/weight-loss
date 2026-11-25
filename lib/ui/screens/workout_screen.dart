@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../data/exercise_catalog.dart';
-import '../models/user_profile.dart';
-import '../models/workout.dart';
-import '../models/workout_session.dart';
-import '../providers/workout_hub.dart';
-import '../theme/app_theme.dart';
-import '../widgets/chunky_button.dart';
-import '../widgets/fitty_avatar.dart';
-import 'profile_sheet.dart';
-import 'workout_player_screen.dart';
+import 'package:weightloss/data/exercise_catalog.dart';
+import 'package:weightloss/models/user_profile.dart';
+import 'package:weightloss/models/workout.dart';
+import 'package:weightloss/models/workout_session.dart';
+import 'package:weightloss/ui/providers/workout_hub.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/chunky_button.dart';
+import 'package:weightloss/ui/widgets/fitty_avatar.dart';
+import 'package:weightloss/ui/providers/app_state.dart';
+import 'package:weightloss/ui/screens/onboarding_screen.dart';
+import 'package:weightloss/ui/screens/workout_player_screen.dart';
 
 /// Раздел «Тренировка»: данные пользователя, запрос плана у ИИ-тренера,
 /// список упражнений и запуск.
@@ -38,61 +39,6 @@ class WorkoutScreen extends StatelessWidget {
                         _ProfileCard(hub: hub),
                         const SizedBox(height: 12),
                         _ParamsCard(hub: hub),
-                        const SizedBox(height: 14),
-                        ChunkyButton(
-                          size: 56,
-                          width: double.infinity,
-                          circle: false,
-                          radius: 20,
-                          color: AppColors.accent,
-                          shadowColor: AppColors.accentDark,
-                          onTap: hub.generating
-                              ? null
-                              : () async {
-                                  if (!hub.profile.configured) {
-                                    final p = await showProfileSheet(
-                                        context, hub.profile);
-                                    if (p == null) return;
-                                    hub.updateProfile(p);
-                                  }
-                                  await hub.generate();
-                                },
-                          child: hub.generating
-                              ? const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 3, color: Colors.white),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Text('Фитти составляет план...',
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.white)),
-                                  ],
-                                )
-                              : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.auto_awesome_rounded,
-                                        color: Colors.white),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                        w == null
-                                            ? 'СОСТАВИТЬ ТРЕНИРОВКУ'
-                                            : 'СОСТАВИТЬ ЗАНОВО',
-                                        style: const TextStyle(
-                                            fontSize: 16,
-                                            letterSpacing: 0.6,
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.white)),
-                                  ],
-                                ),
-                        ),
                         if (hub.notice != null) ...[
                           const SizedBox(height: 12),
                           _Notice(text: hub.notice!, onClose: hub.dismissNotice),
@@ -181,8 +127,14 @@ class _ProfileCard extends StatelessWidget {
     String n(double v) => v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
     return GestureDetector(
       onTap: () async {
-        final r = await showProfileSheet(context, p);
-        if (r != null) hub.updateProfile(r);
+        final app = context.read<AppState>();
+        final res = await Navigator.of(context).push<bool>(MaterialPageRoute(
+          builder: (_) => OnboardingScreen(
+              initial: app.profile, initialWeeks: app.goal?.weeks),
+        ));
+        if (res == true && app.profile != null) {
+          hub.syncFromProfile(app.profile!);
+        }
       },
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -450,7 +402,7 @@ class _Empty extends StatelessWidget {
                   color: AppColors.text)),
           SizedBox(height: 4),
           Text(
-            'Нажми «Составить тренировку», и Фитти подберёт упражнения под твой вес, возраст, обхваты и съеденные калории.',
+            'Тренировки появятся здесь, когда Фитти научится составлять их в разговоре (скоро).',
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 14,

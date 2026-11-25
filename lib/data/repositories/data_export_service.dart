@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../db/app_database.dart';
+import 'package:weightloss/data/db/app_database.dart';
 
 /// Экспорт всех данных одним JSON и полное удаление.
 class DataExportService {

@@ -1,8 +1,8 @@
-import '../entities/diet_plan.dart';
-import '../entities/memory_fact.dart';
-import '../entities/part2_entities.dart';
-import '../entities/profile.dart';
-import '../entities/stored_message.dart';
+import 'package:weightloss/domain/entities/diet_plan.dart';
+import 'package:weightloss/domain/entities/memory_fact.dart';
+import 'package:weightloss/domain/entities/part2_entities.dart';
+import 'package:weightloss/domain/entities/profile.dart';
+import 'package:weightloss/domain/entities/stored_message.dart';
 
 abstract class ProfileRepository {
   Future<Profile?> getProfile();

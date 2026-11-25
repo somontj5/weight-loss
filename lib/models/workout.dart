@@ -1,4 +1,4 @@
-import '../data/exercise_catalog.dart';
+import 'package:weightloss/data/exercise_catalog.dart';
 
 enum WorkoutSource { ai, demo }
 

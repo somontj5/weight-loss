@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-import '../db/app_database.dart';
+import 'package:weightloss/data/db/app_database.dart';
 
 /// Счётчик запросов к модели по дням.
 class UsageRepository {

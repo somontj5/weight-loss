@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'chat_image.dart';
+import 'package:weightloss/ui/widgets/chat_image.dart';
 
 /// Полноэкранный просмотр фото со свайпом и зумом.
 class ImageViewer extends StatefulWidget {

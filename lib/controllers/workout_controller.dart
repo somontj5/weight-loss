@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import '../models/user_profile.dart';
-import '../models/workout.dart';
-import '../models/workout_session.dart';
-import '../services/calorie_calc.dart';
-import '../services/workout_music.dart';
+import 'package:weightloss/models/user_profile.dart';
+import 'package:weightloss/models/workout.dart';
+import 'package:weightloss/models/workout_session.dart';
+import 'package:weightloss/services/calorie_calc.dart';
+import 'package:weightloss/services/workout_music.dart';
 
 enum WorkoutPhase { ready, exercise, rest, finished }
 

@@ -3,11 +3,11 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
-import '../config/api_config.dart';
-import '../data/exercise_catalog.dart';
-import '../models/user_profile.dart';
-import '../models/workout.dart';
-import '../models/workout_session.dart';
+import 'package:weightloss/config/api_config.dart';
+import 'package:weightloss/data/exercise_catalog.dart';
+import 'package:weightloss/models/user_profile.dart';
+import 'package:weightloss/models/workout.dart';
+import 'package:weightloss/models/workout_session.dart';
 
 /// Всё, что тренер должен знать, чтобы составить тренировку.
 class WorkoutRequest {

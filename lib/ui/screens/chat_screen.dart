@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/chat_provider.dart';
-import '../services/voice_recorder.dart';
-import '../theme/app_theme.dart';
-import '../widgets/composer.dart';
-import '../widgets/fitty_avatar.dart';
-import '../widgets/message_bubble.dart';
+import 'package:weightloss/ui/providers/chat_provider.dart';
+import 'package:weightloss/services/voice_recorder.dart';
+import 'package:weightloss/ui/screens/settings_screen.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/composer.dart';
+import 'package:weightloss/ui/widgets/fitty_avatar.dart';
+import 'package:weightloss/ui/widgets/message_bubble.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -80,7 +81,7 @@ class _ChatScreenState extends State<ChatScreen> {
         bottom: false,
         child: Column(
           children: [
-            _Header(typing: chat.isTyping),
+            _Header(typing: chat.isTyping, demo: chat.demoMode),
             Expanded(
               child: Container(
                 color: AppColors.surface,
@@ -119,9 +120,10 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.typing});
+  const _Header({required this.typing, required this.demo});
 
   final bool typing;
+  final bool demo;
 
   @override
   Widget build(BuildContext context) {
@@ -160,7 +162,9 @@ class _Header extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      typing ? 'печатает...' : 'онлайн',
+                      typing
+                          ? 'печатает...'
+                          : (demo ? 'демо-режим' : 'онлайн'),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -171,6 +175,12 @@ class _Header extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+          IconButton(
+            tooltip: 'Настройки',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const SettingsScreen())),
+            icon: const Icon(Icons.settings_rounded, color: AppColors.textSoft),
           ),
         ],
       ),

@@ -3,13 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../models/chat_message.dart';
-import '../services/voice_recorder.dart';
-import '../theme/app_theme.dart';
-import 'chat_image.dart';
-import 'chunky_button.dart';
-import 'live_waveform.dart';
-import 'voice_bubble.dart' show formatDuration;
+import 'package:weightloss/models/chat_message.dart';
+import 'package:weightloss/services/voice_recorder.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/chat_image.dart';
+import 'package:weightloss/ui/widgets/chunky_button.dart';
+import 'package:weightloss/ui/widgets/live_waveform.dart';
+import 'package:weightloss/ui/widgets/voice_bubble.dart' show formatDuration;
 
 /// Нижняя панель ввода. Режимы:
 ///  * обычный: [+] [поле ввода] [микрофон | отправить]

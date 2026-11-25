@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/workout_session.dart';
-import '../providers/workout_hub.dart';
-import '../theme/app_theme.dart';
-import '../widgets/chunky_button.dart';
-import '../widgets/fitty_avatar.dart';
+import 'package:weightloss/models/workout_session.dart';
+import 'package:weightloss/ui/providers/workout_hub.dart';
+import 'package:weightloss/ui/theme/app_theme.dart';
+import 'package:weightloss/ui/widgets/chunky_button.dart';
+import 'package:weightloss/ui/widgets/fitty_avatar.dart';
 
 /// Итоги тренировки + разбор от ИИ-тренера (ему же уходит весь журнал:
 /// паузы, пропуски, досрочное завершение).

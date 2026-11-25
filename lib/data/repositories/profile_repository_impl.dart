@@ -76,7 +76,10 @@ class ProfileRepositoryImpl implements ProfileRepository {
   @override
   Future<List<WeightPoint>> weightHistory({int limit = 10}) async {
     final rows = await (_db.select(_db.profileHistory)
-          ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.recordedAt),
+            (t) => OrderingTerm.desc(t.id),
+          ])
           ..limit(limit))
         .get();
     return rows.reversed.map((e) => WeightPoint(e.recordedAt, e.weightKg)).toList();

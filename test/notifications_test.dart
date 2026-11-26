@@ -360,7 +360,7 @@ void main() {
       for (var i = 0; i < 6; i++) {
         r = await disp.handle(
             ReplyParser.parse(
-                '{"reply":"ок","actions":[{"type":"schedule_notification","slot":"custom","time":"1${i}:00","text":"x$i"}]}'),
+                '{"reply":"ок","actions":[{"type":"schedule_notification","slot":"custom","time":"1$i:00","text":"x$i"}]}'),
             ctx());
       }
       expect((await sched.all()).where((o) => o.slot == 'custom').length,

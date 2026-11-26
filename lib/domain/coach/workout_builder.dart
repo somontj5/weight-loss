@@ -116,16 +116,24 @@ class WorkoutBuilder {
       mains.removeLast();
     }
     // Не хватает: добираем из каталога, не повторяя подряд.
+    // Когда каталог кончился, идём по кругу: упражнения повторяются,
+    // но не два раза подряд (как в круговой тренировке).
+    final all = cat
+        .where((t) => t.stage == 'main' && _allowed(t, decision))
+        .toList();
     var guard = 0;
     while (fixed + _total(mains) < target * 0.9 &&
-        pool.isNotEmpty &&
-        guard++ < 30) {
+        all.isNotEmpty &&
+        guard++ < 60) {
+      if (pool.isEmpty) {
+        final k = (seed.abs() + guard) % all.length;
+        pool.addAll([...all.skip(k), ...all.take(k)]);
+      }
       final t = pool.removeAt(0);
       if (mains.isNotEmpty && mains.last.id == t.id) continue;
       mains.add(
         _make(t, _workFor(decision.difficulty), _restFor(decision.difficulty)),
       );
-      if (pool.isEmpty) break;
     }
     if (mains.isEmpty) {
       // каталог слишком узок: берём что разрешено без повторов подряд

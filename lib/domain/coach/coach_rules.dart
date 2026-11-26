@@ -129,11 +129,13 @@ class CoachRules {
     if (overTodayFlag) bump++;
     if (overWeekFlag) bump++;
     if (bump > 1) bump = 1; // не больше +1 за раз
-    var escalate = bump > 0 && !tired && !lowEnergy && !softReturn;
-
-    var diff = base + (escalate ? bump : 0);
-    diff = diff.clamp(1, maxDiff);
-    if (escalate && diff == base) escalate = false; // упёрлись в потолок
+    final baseC = base.clamp(1, maxDiff);
+    var diff = baseC;
+    var escalate = false;
+    if (bump > 0 && !tired && !lowEnergy && !softReturn && baseC < maxDiff) {
+      diff = baseC + 1; // усложняем, только если есть куда (потолок не трогаем)
+      escalate = true;
+    }
     if (tired) {
       diff = 1;
       reasons.add('самочувствие не очень, нагрузка лёгкая');

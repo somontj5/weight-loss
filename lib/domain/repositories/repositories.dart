@@ -10,6 +10,10 @@ abstract class ProfileRepository {
   Future<DietPlanData?> getDietPlan();
   Future<List<WeightPoint>> weightHistory({int limit = 10});
 
+  /// Заменяет ТОЛЬКО норму (новая активная запись diet_plans). История цифр
+  /// профиля (profile_history) и цель не трогаются.
+  Future<void> replaceDietPlan(DietPlanData plan);
+
   /// Сохраняет профиль, пишет снимок в историю, пересчитывает цель и норму.
   Future<void> saveProfile(Profile p,
       {required Goal goal,

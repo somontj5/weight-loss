@@ -86,6 +86,28 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
+  Future<void> replaceDietPlan(DietPlanData plan) async {
+    final now = _clock();
+    await _db.transaction(() async {
+      await (_db.update(_db.dietPlans)..where((t) => t.active.equals(true)))
+          .write(const DietPlansCompanion(active: Value(false)));
+      await _db.into(_db.dietPlans).insert(DietPlansCompanion.insert(
+            createdAt: now,
+            kcalTarget: plan.kcal,
+            proteinG: plan.proteinG,
+            fatG: plan.fatG,
+            carbsG: plan.carbsG,
+            bmr: plan.bmr,
+            tdee: plan.tdee,
+            deficitKcal: plan.deficitKcal,
+            weeklyLossKg: plan.weeklyLossKg,
+            toleranceKcal: Value(plan.toleranceKcal),
+            notesJson: Value(jsonEncode(plan.notes)),
+          ));
+    });
+  }
+
+  @override
   Future<void> saveProfile(Profile p,
       {required Goal goal,
       required DietPlanData plan,

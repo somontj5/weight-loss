@@ -11,6 +11,7 @@ import 'package:weightloss/domain/context/context_assembler.dart';
 import 'package:weightloss/data/repositories/diary_repository_impl.dart';
 import 'package:weightloss/data/repositories/settings_repository_impl.dart';
 import 'package:weightloss/domain/actions/action_dispatcher.dart';
+import 'package:weightloss/domain/actions/set_activity_handler.dart';
 import 'package:weightloss/domain/context/part2_stubs.dart';
 import 'package:weightloss/domain/diary/diary_calc.dart';
 import 'package:weightloss/domain/diary/diary_service.dart';
@@ -31,11 +32,11 @@ class AppDeps {
     conversation = ConversationRepositoryImpl(db);
     final usage = UsageRepository(db);
     quota = QuotaManager(usage, aiConfig);
-    profileService = ProfileService(profiles);
     memoryService = MemoryService(memoryRepo);
     exporter = DataExportService(db);
 
     settings = SettingsRepositoryImpl(db);
+    profileService = ProfileService(profiles, settings: settings);
     diary = DiaryService(DiaryRepositoryImpl(db));
     diarySource = DbDiarySource(diary);
     diaryCalc = DiaryCalc(
@@ -48,6 +49,7 @@ class AppDeps {
       memory: memoryService,
       diary: diary,
       calc: diaryCalc,
+      handlers: [SetActivityHandler(profileService)],
     );
 
     assembler = ContextAssembler(

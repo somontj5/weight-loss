@@ -108,6 +108,37 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
+  Future<void> recordMeasurement(Profile p,
+      {required DateTime at, String source = 'chat'}) async {
+    await _db.transaction(() async {
+      final last = await (_db.select(_db.profileHistory)
+            ..orderBy([(t) => OrderingTerm.desc(t.recordedAt)])
+            ..limit(1))
+          .getSingleOrNull();
+      await _db.into(_db.profileHistory).insert(ProfileHistoryCompanion.insert(
+            recordedAt: at,
+            weightKg: p.weightKg,
+            targetWeightKg: p.targetWeightKg,
+            heightCm: p.heightCm,
+            waistCm: Value(p.waistCm),
+            chestCm: Value(p.chestCm),
+            hipsCm: Value(p.hipsCm),
+            source: Value(source),
+          ));
+      if (last == null || !at.isBefore(last.recordedAt)) {
+        await (_db.update(_db.profiles)..where((t) => t.id.equals(1))).write(
+            ProfilesCompanion(
+          weightKg: Value(p.weightKg),
+          waistCm: Value(p.waistCm),
+          chestCm: Value(p.chestCm),
+          hipsCm: Value(p.hipsCm),
+          updatedAt: Value(_clock()),
+        ));
+      }
+    });
+  }
+
+  @override
   Future<void> saveProfile(Profile p,
       {required Goal goal,
       required DietPlanData plan,

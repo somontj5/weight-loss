@@ -56,6 +56,6 @@ void main() {
     await db.into(db.appSettings).insert(AppSettingsCompanion.insert(
         key: 'activity.level', value: 'light', updatedAt: DateTime(2026)));
     expect((await db.select(db.appSettings).getSingle()).value, 'light');
-    expect(AppDatabase.dbSchemaVersion, 2);
+    expect(AppDatabase.dbSchemaVersion, 3);
   });
 }

@@ -25,6 +25,7 @@ class DiaryRepositoryImpl implements DiaryRepository {
         createdAt: r.createdAt,
         offPlan: r.offPlan,
         note: r.note,
+        planItemId: r.planItemId,
       );
 
   DiaryEntriesCompanion _companion(DiaryEntry e, {bool withId = false}) =>
@@ -43,6 +44,7 @@ class DiaryRepositoryImpl implements DiaryRepository {
         createdAt: Value(e.createdAt),
         offPlan: Value(e.offPlan),
         note: Value(e.note),
+        planItemId: Value(e.planItemId),
       );
 
   @override

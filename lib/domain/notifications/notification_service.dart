@@ -40,6 +40,13 @@ class NotificationService {
 
   /// Времена запланированных тренировок (подключается тренером).
   Future<List<DateTime>> Function()? plannedWorkouts;
+
+  /// Время приёмов и дни рациона (подключается рационом).
+  Future<({Map<String, Map<String, int>> times, Set<String> days})> Function()?
+  rationInfo;
+
+  /// Дата последнего взвешивания.
+  Future<DateTime?> Function()? lastWeighAt;
   final DateTime Function() _clock;
 
   /// Вызывается при нажатии на уведомление (slot).
@@ -106,7 +113,23 @@ class NotificationService {
     try {
       workouts.addAll(await plannedWorkouts?.call() ?? const []);
     } catch (_) {}
+    var planTimes = <String, Map<String, int>>{};
+    var planDays = <String>{};
+    DateTime? lw;
+    try {
+      final r = await rationInfo?.call();
+      if (r != null) {
+        planTimes = r.times;
+        planDays = r.days;
+      }
+    } catch (_) {}
+    try {
+      lw = await lastWeighAt?.call();
+    } catch (_) {}
     return PlanInput(
+      planTimes: planTimes,
+      planDays: planDays,
+      lastWeighAt: lw,
       now: now,
       prefs: await prefs(),
       wakeUpMin: await _mem('schedule.wake_up'),

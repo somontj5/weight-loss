@@ -50,6 +50,8 @@ class ContextAssembler {
     required this.conversation,
     this.diary = const _NoDiary(),
     this.workouts = const _NoWorkouts(),
+    this.rationBlock,
+    this.weightBlock,
     this.config = ContextConfig.defaults,
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
@@ -59,6 +61,10 @@ class ContextAssembler {
   final ConversationRepository conversation;
   final DiarySource diary;
   final WorkoutHistorySource workouts;
+
+  /// Блоки [РАЦИОН] и [ВЕС] (факты, собранные кодом).
+  final Future<String> Function()? rationBlock;
+  final Future<String> Function()? weightBlock;
   final ContextConfig config;
   final DateTime Function() _clock;
 
@@ -80,6 +86,15 @@ class ContextAssembler {
         await conversation.pendingForSummary(keepLast: c.keepRecentRaw);
     final recent = await conversation.lastChatMessages(c.recentMessagesMax);
 
+    var ration = '';
+    var weightText = '';
+    try {
+      ration = await rationBlock?.call() ?? '';
+    } catch (_) {}
+    try {
+      weightText = await weightBlock?.call() ?? '';
+    } catch (_) {}
+
     final parts = <_Part>[
       _Part('now', _nowLine(now), 60, 0),
       _Part('profile', _profileBlock(profile, goal, plan, weights, now),
@@ -89,6 +104,8 @@ class ContextAssembler {
       _Part('week', _weekBlock(week, plan), c.weekBudget, 6),
       _Part('workouts', _workoutsBlock(trainings), c.workoutsBudget, 5),
       _Part('summaries', _summariesBlock(summaries), c.summariesBudget, 4),
+      _Part('ration', ration, c.rationBudget, 4),
+      _Part('weight', weightText, c.weightBudget, 3),
     ];
 
     // Каждая секция в своём бюджете.

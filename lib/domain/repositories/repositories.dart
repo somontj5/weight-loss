@@ -14,6 +14,11 @@ abstract class ProfileRepository {
   /// профиля (profile_history) и цель не трогаются.
   Future<void> replaceDietPlan(DietPlanData plan);
 
+  /// Новое взвешивание или замеры: строка в profile_history; профиль
+  /// обновляется, только если запись самая свежая.
+  Future<void> recordMeasurement(Profile p,
+      {required DateTime at, String source = 'chat'});
+
   /// Сохраняет профиль, пишет снимок в историю, пересчитывает цель и норму.
   Future<void> saveProfile(Profile p,
       {required Goal goal,

@@ -15,6 +15,7 @@ class DiaryEntry {
     this.messageId,
     this.offPlan = false,
     this.note,
+    this.planItemId,
   });
 
   final int id;
@@ -35,4 +36,7 @@ class DiaryEntry {
   final DateTime createdAt;
   final bool offPlan;
   final String? note;
+
+  /// Пункт рациона (meal_plan_items.id), с которым Фитти связал запись.
+  final int? planItemId;
 }

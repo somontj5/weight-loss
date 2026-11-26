@@ -53,6 +53,7 @@ class ChatService {
     this.calc,
     this.onScheduleDirty,
     this.coachBlock,
+    this.afterReply,
     this.onAiStatus,
     MediaPreparer? media,
     DemoResponder? demo,
@@ -72,6 +73,9 @@ class ChatService {
 
   /// Блок [ДАННЫЕ ДЛЯ ТРЕНЕРА]: только факты, решает модель.
   final Future<String> Function()? coachBlock;
+
+  /// Вызывается после успешного ответа модели.
+  final Future<void> Function()? afterReply;
 
   /// Сообщает, отвечает ли ИИ (true) или недоступен (false).
   final void Function(bool ok)? onAiStatus;
@@ -225,6 +229,9 @@ class ChatService {
           ? parsed.text
           : '${parsed.text}\n\n${dispatched.footers.join('\n')}';
       onAiStatus?.call(true);
+      try {
+        await afterReply?.call();
+      } catch (_) {}
       return ChatReply(
         text: answer,
         model: routed.model,

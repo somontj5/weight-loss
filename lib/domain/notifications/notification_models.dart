@@ -5,6 +5,8 @@ class NotifSlot {
   static const dinner = 'dinner';
   static const summary = 'summary';
   static const workout = 'workout';
+  static const weigh = 'weigh';
+  static const planReady = 'plan_ready';
   static const custom = 'custom';
 
   /// Слоты, которые пользователь может настраивать по имени.
@@ -12,7 +14,11 @@ class NotifSlot {
   static const meals = [breakfast, lunch, dinner];
 
   static bool isValid(String? s) =>
-      s == custom || s == workout || named.contains(s);
+      s == custom ||
+      s == workout ||
+      s == weigh ||
+      s == planReady ||
+      named.contains(s);
 
   static String ru(String slot) => switch (slot) {
     breakfast => 'завтрак',
@@ -20,6 +26,8 @@ class NotifSlot {
     dinner => 'ужин',
     summary => 'вечерний итог',
     workout => 'тренировка',
+    weigh => 'взвешивание',
+    planReady => 'план на завтра',
     _ => 'напоминание',
   };
 
@@ -30,6 +38,8 @@ class NotifSlot {
     dinner => 3,
     summary => 4,
     workout => 5,
+    weigh => 6,
+    planReady => 7,
     _ => 9,
   };
 
@@ -40,7 +50,9 @@ class NotifSlot {
     workout => 2,
     dinner => 3,
     breakfast => 4,
+    weigh => 5,
     summary => 5,
+    planReady => 6,
     _ => 9,
   };
 }
@@ -131,6 +143,8 @@ class NotifOverride {
 
 /// Вход планировщика: что известно о режиме дня и о том, что уже записано.
 class PlanInput {
+  static String dayKey(DateTime d) => '${d.year}-${d.month}-${d.day}';
+
   const PlanInput({
     required this.now,
     required this.prefs,
@@ -142,6 +156,9 @@ class PlanInput {
     this.overrides = const [],
     this.loggedMealsToday = const {},
     this.workouts = const [],
+    this.planTimes = const {},
+    this.planDays = const {},
+    this.lastWeighAt,
     this.days = 7,
   });
 
@@ -159,6 +176,16 @@ class PlanInput {
 
   /// Запланированные тренировки (время начала).
   final List<DateTime> workouts;
+
+  /// Время приёмов из рациона: 'ГГГГ-М-Д' -> {слот: минуты}. Слоты
+  /// breakfast / lunch / dinner (из рациона берётся время еды).
+  final Map<String, Map<String, int>> planTimes;
+
+  /// Дни ('ГГГГ-М-Д'), на которые рацион уже составлен.
+  final Set<String> planDays;
+
+  /// Дата последнего взвешивания (null — взвешиваний нет).
+  final DateTime? lastWeighAt;
 
   /// На сколько дней вперёд (включая сегодня).
   final int days;

@@ -14,6 +14,7 @@ class FoodLogRequest {
     this.carbsG,
     this.offPlan,
     this.note,
+    this.planItemId,
     this.problems = const [],
   });
 
@@ -29,6 +30,9 @@ class FoodLogRequest {
   final double? carbsG;
   final bool? offPlan;
   final String? note;
+
+  /// Пункт рациона, который Фитти связал с этой едой.
+  final int? planItemId;
 
   /// Что пришлось выбросить как мусор (для отладки и тестов).
   final List<String> problems;
@@ -136,8 +140,14 @@ class FoodActionParser {
       carbsG: c,
       offPlan: data['off_plan'] is bool ? data['off_plan'] as bool : null,
       note: (note == null || note.isEmpty) ? null : note,
+      planItemId: _planId(data['plan_item_id']),
       problems: problems,
     );
+  }
+
+  static int? _planId(Object? v) {
+    final n = v is num ? v.toInt() : int.tryParse(v?.toString() ?? '');
+    return (n != null && n > 0) ? n : null;
   }
 
   static String cleanDescription(String? raw) {

@@ -108,7 +108,10 @@ class NotificationPlanner {
         final fixed = (ov != null && ov.minuteOfDay >= 0)
             ? ov.minuteOfDay
             : null;
-        var m = fixed ?? baseMinute(slot, i)!;
+        final fromPlan = i.planTimes[PlanInput.dayKey(day)]?[slot];
+        var m =
+            fixed ??
+            (fromPlan != null ? fromPlan + mealOffsetMin : baseMinute(slot, i)!);
         if (_quiet(m, qFrom, qTo)) {
           if (slot == NotifSlot.summary && fixed == null) {
             m = (qFrom - 30) % (24 * 60); // итог сдвигаем до тихих часов
@@ -118,6 +121,38 @@ class NotificationPlanner {
           }
         }
         cands.add(_Cand(slot, m, null, null));
+      }
+
+      // 1б) «Пора взвеситься»: один раз, в первый подходящий день,
+      // мягко, утром; потом не повторяется, пока не будет взвешивания.
+      if (i.lastWeighAt != null) {
+        final lw = DateTime(
+          i.lastWeighAt!.year,
+          i.lastWeighAt!.month,
+          i.lastWeighAt!.day,
+        );
+        final due = lw.add(const Duration(days: 7));
+        var first = due;
+        if (due.isBefore(today)) {
+          // просрочено: напоминаем раз в неделю от даты «срока»
+          final late = today.difference(due).inDays;
+          first = due.add(Duration(days: ((late + 6) ~/ 7) * 7));
+        }
+        if (day == first) {
+          final base = (i.wakeUpMin ?? defaultBreakfast) + 20;
+          var m = base < 9 * 60 ? 9 * 60 : base;
+          if (!_quiet(m, qFrom, qTo)) cands.add(_Cand(NotifSlot.weigh, m, null, null));
+        }
+      }
+
+      // 1в) «План на завтра готов»: вечером, если рацион на завтра есть.
+      if (i.planDays.contains(PlanInput.dayKey(day.add(const Duration(days: 1))))) {
+        var m = defaultSummary - 90;
+        if (i.bedtimeMin != null) {
+          final b = i.bedtimeMin! < 4 * 60 ? i.bedtimeMin! + 24 * 60 : i.bedtimeMin!;
+          m = ((b - 150) % (24 * 60));
+        }
+        if (!_quiet(m, qFrom, qTo)) cands.add(_Cand(NotifSlot.planReady, m, null, null));
       }
 
       // 2) Пользовательские напоминания.

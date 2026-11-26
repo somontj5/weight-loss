@@ -130,6 +130,9 @@ class DiaryEntries extends Table {
   /// (v2) Еда вне плана: человек сам или Фитти пометили приём как «срыв».
   BoolColumn get offPlan => boolean().withDefault(const Constant(false))();
 
+  /// (v3) Связь с пунктом рациона (meal_plan_items.id), если Фитти её указал.
+  IntColumn get planItemId => integer().nullable()();
+
   /// (v2) Короткая заметка к записи.
   TextColumn get note => text().nullable()();
 }
@@ -247,4 +250,32 @@ class ApiUsage extends Table {
 
   @override
   Set<Column> get primaryKey => {day, model};
+}
+
+/// (v3) Рацион: пункты плана питания на дни вперёд.
+@DataClassName('MealPlanItemsRow')
+class MealPlanItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Начало дня (локальная полночь).
+  DateTimeColumn get date => dateTime()();
+
+  /// breakfast | snack | lunch | afternoon_snack | dinner
+  TextColumn get meal => text()();
+
+  /// «ЧЧ:ММ».
+  TextColumn get time => text().withDefault(const Constant('12:00'))();
+  TextColumn get title => text()();
+
+  /// JSON-список строк: состав блюда.
+  TextColumn get compositionJson => text().withDefault(const Constant('[]'))();
+  IntColumn get kcal => integer()();
+  RealColumn get proteinG => real().withDefault(const Constant(0))();
+  RealColumn get fatG => real().withDefault(const Constant(0))();
+  RealColumn get carbsG => real().withDefault(const Constant(0))();
+
+  /// planned | eaten | skipped | replaced
+  TextColumn get status => text().withDefault(const Constant('planned'))();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
 }

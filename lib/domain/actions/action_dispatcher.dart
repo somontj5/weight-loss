@@ -2,6 +2,7 @@ import 'package:weightloss/domain/diary/diary_calc.dart';
 import 'package:weightloss/domain/diary/diary_service.dart';
 import 'package:weightloss/domain/diary/food_action.dart';
 import 'package:weightloss/domain/memory/memory_service.dart';
+import 'package:weightloss/domain/ration/ration_service.dart';
 import 'package:weightloss/services/ai/reply_parser.dart';
 
 /// Откуда пришло сообщение человека.
@@ -52,12 +53,16 @@ class ActionDispatcher {
     required this.memory,
     this.diary,
     this.calc,
+    this.ration,
     this.handlers = const [],
   });
 
   final MemoryService memory;
   final DiaryService? diary;
   final DiaryCalc? calc;
+
+  /// Рацион: статус пункта обновляется по ссылке plan_item_id из log_food.
+  final RationService? ration;
 
   /// Дополнительные обработчики (например, set_activity).
   final List<ActionHandler> handlers;
@@ -130,6 +135,19 @@ class ActionDispatcher {
               source: ctx.foodSource,
               photos: ctx.foodSource == 'chat_photo' ? ctx.images : const [],
             );
+            try {
+              final e = food.entry;
+              if (ration != null && e != null) {
+                if (food.kind == FoodOutcomeKind.deleted) {
+                  if (e.planItemId != null) await ration!.unlinkFood(e.planItemId!);
+                } else if (e.planItemId != null) {
+                  await ration!.linkFood(
+                    e.planItemId!,
+                    status: a.data['plan_status']?.toString(),
+                  );
+                }
+              }
+            } catch (_) {}
             final f = await calc?.footer(food);
             if (f != null) footers.add(f);
           } catch (_) {

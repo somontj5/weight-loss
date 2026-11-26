@@ -20,6 +20,7 @@ import 'package:weightloss/domain/context/part2_stubs.dart';
 import 'package:weightloss/data/repositories/notification_schedule_repository_impl.dart';
 import 'package:weightloss/domain/actions/notification_handlers.dart';
 import 'package:weightloss/domain/notifications/notification_gateway.dart';
+import 'package:weightloss/domain/notifications/notification_models.dart' show PlanInput;
 import 'package:weightloss/domain/notifications/notification_service.dart';
 import 'package:weightloss/data/repositories/workout_repository_impl.dart';
 import 'package:weightloss/domain/actions/plan_workout_handler.dart';
@@ -32,6 +33,13 @@ import 'package:weightloss/domain/settings/settings_repository.dart';
 import 'package:weightloss/domain/memory/memory_service.dart';
 import 'package:weightloss/domain/profile_service.dart';
 import 'package:weightloss/domain/repositories/repositories.dart';
+import 'package:weightloss/data/repositories/meal_plan_repository_impl.dart';
+import 'package:weightloss/domain/actions/plan_meals_handler.dart';
+import 'package:weightloss/domain/actions/update_weight_handler.dart';
+import 'package:weightloss/domain/ration/meal_plan_repository.dart';
+import 'package:weightloss/domain/ration/ration_models.dart';
+import 'package:weightloss/domain/ration/ration_service.dart';
+import 'package:weightloss/domain/weight/weight_service.dart';
 import 'package:weightloss/services/ai/gemini_client.dart';
 import 'package:weightloss/services/ai/model_router.dart';
 import 'package:weightloss/services/ai/quota_manager.dart';
@@ -95,11 +103,66 @@ class AppDeps {
     );
     notifications.plannedWorkouts = () =>
         workoutRepo.plannedTimes(DateTime.now());
+    mealPlanRepo = MealPlanRepositoryImpl(db);
+    ration = RationService(
+      repo: mealPlanRepo,
+      profiles: profiles,
+      memory: memoryRepo,
+      diary: diary,
+      settings: settings,
+      onChanged: notifications.reschedule,
+      ask: (system, user) async {
+        final r = await router.generate(
+          system: system,
+          turns: [ChatTurn('user', user)],
+        );
+        return r.text;
+      },
+    );
+    weight = WeightService(
+      profiles: profiles,
+      profileService: profileService,
+      settings: settings,
+      onNormChanged: () async {
+        final t = RationService.dayOf(DateTime.now());
+        await ration.generate(
+          days: [for (var i = 0; i < RationService.horizonDays; i++) t.add(Duration(days: i))],
+          reason: 'норма калорий изменилась после нового взвешивания: поправь будущие дни',
+        );
+      },
+    );
+    notifications.rationInfo = () async {
+      final now = DateTime.now();
+      final today = RationService.dayOf(now);
+      final items = await mealPlanRepo.between(
+        today,
+        today.add(const Duration(days: 8)),
+      );
+      final times = <String, Map<String, int>>{};
+      final days = <String>{};
+      for (final i in items) {
+        final k = PlanInput.dayKey(i.date);
+        days.add(k);
+        if (i.meal == MealSlot.breakfast ||
+            i.meal == MealSlot.lunch ||
+            i.meal == MealSlot.dinner) {
+          times.putIfAbsent(k, () => {})[i.meal] = i.minuteOfDay;
+        }
+      }
+      return (times: times, days: days);
+    };
+    notifications.lastWeighAt = () async {
+      final w = await profiles.weightHistory(limit: 1);
+      return w.isEmpty ? null : w.last.at;
+    };
     dispatcher = ActionDispatcher(
       memory: memoryService,
       diary: diary,
       calc: diaryCalc,
+      ration: ration,
       handlers: [
+        PlanMealsHandler(ration),
+        UpdateWeightHandler(weight),
         SetActivityHandler(profileService),
         ScheduleNotificationHandler(notifications, schedule),
         PlanWorkoutHandler(coach),
@@ -112,6 +175,8 @@ class AppDeps {
       conversation: conversation,
       diary: diarySource,
       workouts: DbWorkoutHistorySource(workoutRepo),
+      rationBlock: ration.block,
+      weightBlock: weight.block,
       config: contextConfig,
     );
     router = ModelRouter(GeminiClient(aiConfig), quota, aiConfig);
@@ -122,6 +187,7 @@ class AppDeps {
       calc: diaryCalc,
       onScheduleDirty: notifications.reschedule,
       coachBlock: coach.block,
+      afterReply: weight.commitAsked,
       onAiStatus: (ok) => coach.aiOnline = ok,
       conversation: conversation,
       aiConfig: aiConfig,
@@ -158,6 +224,9 @@ class AppDeps {
   late final NotificationService notifications;
   late final WorkoutRepository workoutRepo;
   late final CoachService coach;
+  late final MealPlanRepository mealPlanRepo;
+  late final RationService ration;
+  late final WeightService weight;
   late final ActionDispatcher dispatcher;
   late final ContextAssembler assembler;
   late final ModelRouter router;

@@ -11,4 +11,17 @@ class SettingKeys {
 
   /// Сколько уточняющих вопросов Фитти задал подряд (считает код).
   static const clarifyStreak = 'food.clarify_streak';
+
+  /// Рацион: '1' — план составлен без полной информации («черновик»).
+  static const rationDraft = 'ration.draft';
+
+  /// Рацион: JSON {дата: 'kcal'} — дни, где сумма не сошлась с нормой.
+  static const rationMarks = 'ration.marks';
+  static const rationLastAttempt = 'ration.last_attempt';
+  static const rationLastDeviation = 'ration.last_deviation';
+
+  /// Вес: JSON отложенной записи (скачок ждёт подтверждения человека).
+  static const weightPending = 'weight.pending';
+  static const weightLastAsked = 'weight.last_asked';
+  static const weightGirthsAt = 'weight.girths_at';
 }

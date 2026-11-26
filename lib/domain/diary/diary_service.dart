@@ -97,6 +97,7 @@ class DiaryService {
       createdAt: now,
       offPlan: r.offPlan ?? false,
       note: r.note,
+      planItemId: r.planItemId,
     );
     final id = await _repo.insert(entry);
     final saved = await _repo.byId(id);
@@ -152,6 +153,7 @@ class DiaryService {
       createdAt: old.createdAt,
       offPlan: r.offPlan ?? old.offPlan,
       note: r.note ?? old.note,
+      planItemId: r.planItemId ?? old.planItemId,
     );
   }
 

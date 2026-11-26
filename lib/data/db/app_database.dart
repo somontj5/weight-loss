@@ -18,11 +18,12 @@ part 'app_database.g.dart';
   ConversationSummaries,
   ApiUsage,
   AppSettings,
+  MealPlanItems,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const dbSchemaVersion = 2;
+  static const dbSchemaVersion = 3;
 
   @override
   int get schemaVersion => dbSchemaVersion;
@@ -37,6 +38,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(diaryEntries, diaryEntries.note);
             await m.addColumn(notificationSchedule, notificationSchedule.slot);
             await m.createTable(appSettings);
+          }
+          if (from < 3) {
+            await m.createTable(mealPlanItems);
+            await m.addColumn(diaryEntries, diaryEntries.planItemId);
           }
         },
         beforeOpen: (details) async {

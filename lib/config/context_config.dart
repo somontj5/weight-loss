@@ -2,12 +2,14 @@
 /// Меняется здесь в одном месте.
 class ContextConfig {
   const ContextConfig({
-    this.totalBudget = 3500,
+    this.totalBudget = 5000,
     this.profileBudget = 350,
     this.memoryBudget = 800,
     this.todayBudget = 400,
     this.weekBudget = 350,
     this.workoutsBudget = 250,
+    this.rationBudget = 320,
+    this.weightBudget = 220,
     this.summariesBudget = 600,
     this.recentBudget = 1500,
     this.recentMessagesMax = 12,
@@ -28,6 +30,8 @@ class ContextConfig {
   final int todayBudget;
   final int weekBudget;
   final int workoutsBudget;
+  final int rationBudget;
+  final int weightBudget;
   final int summariesBudget;
   final int recentBudget;
 

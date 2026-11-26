@@ -17,11 +17,12 @@ part 'app_database.g.dart';
   Messages,
   ConversationSummaries,
   ApiUsage,
+  AppSettings,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
-  static const dbSchemaVersion = 1;
+  static const dbSchemaVersion = 2;
 
   @override
   int get schemaVersion => dbSchemaVersion;
@@ -29,6 +30,15 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          // Только добавляем: данные пользователя не трогаем.
+          if (from < 2) {
+            await m.addColumn(diaryEntries, diaryEntries.offPlan);
+            await m.addColumn(diaryEntries, diaryEntries.note);
+            await m.addColumn(notificationSchedule, notificationSchedule.slot);
+            await m.createTable(appSettings);
+          }
+        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },

@@ -126,6 +126,12 @@ class DiaryEntries extends Table {
   TextColumn get source => text().withDefault(const Constant('chat_text'))();
   IntColumn get messageId => integer().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+
+  /// (v2) Еда вне плана: человек сам или Фитти пометили приём как «срыв».
+  BoolColumn get offPlan => boolean().withDefault(const Constant(false))();
+
+  /// (v2) Короткая заметка к записи.
+  TextColumn get note => text().nullable()();
 }
 
 /// Заполняется в части 2.
@@ -184,6 +190,21 @@ class NotificationSchedule extends Table {
   /// user | fitty
   TextColumn get createdBy => text().withDefault(const Constant('fitty'))();
   DateTimeColumn get createdAt => dateTime()();
+
+  /// (v2) breakfast | lunch | dinner | summary | workout | custom
+  TextColumn get slot => text().withDefault(const Constant('custom'))();
+}
+
+/// (v2) Простые настройки «ключ → значение»: уровень активности,
+/// будущие настройки уведомлений (часть 2Б).
+@DataClassName('AppSettingsRow')
+class AppSettings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {key};
 }
 
 @DataClassName('MessagesRow')

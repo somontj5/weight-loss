@@ -7,6 +7,7 @@ import 'package:weightloss/domain/context/context_assembler.dart';
 import 'package:weightloss/domain/memory/memory_service.dart';
 import 'package:weightloss/services/ai/ai_exceptions.dart';
 import 'package:weightloss/services/ai/gemini_client.dart';
+import 'package:weightloss/services/ai/media_preparer.dart';
 import 'package:weightloss/services/ai/model_router.dart';
 import 'package:weightloss/services/ai/quota_manager.dart';
 import 'package:weightloss/services/chat_service.dart';
@@ -23,7 +24,8 @@ class Scripted implements ModelTransport {
   Future<String> generate(
       {required String model,
       required String system,
-      required List<ChatTurn> turns}) async {
+      required List<ChatTurn> turns,
+      List<Attachment> attachments = const []}) async {
     calls++;
     systems.add(system);
     final a = answer;

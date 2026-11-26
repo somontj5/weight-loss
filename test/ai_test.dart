@@ -5,6 +5,7 @@ import 'package:weightloss/data/repositories/usage_repository.dart';
 import 'package:weightloss/domain/context/context_assembler.dart';
 import 'package:weightloss/services/ai/ai_exceptions.dart';
 import 'package:weightloss/services/ai/gemini_client.dart';
+import 'package:weightloss/services/ai/media_preparer.dart';
 import 'package:weightloss/services/ai/model_router.dart';
 import 'package:weightloss/services/ai/quota_manager.dart';
 
@@ -18,7 +19,8 @@ class FakeTransport implements ModelTransport {
   Future<String> generate(
       {required String model,
       required String system,
-      required List<ChatTurn> turns}) async {
+      required List<ChatTurn> turns,
+      List<Attachment> attachments = const []}) async {
     calls.add(model);
     final b = behaviour[model] ?? '{"reply":"ok from $model"}';
     if (b is AiException) throw b;

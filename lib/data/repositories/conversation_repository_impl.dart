@@ -50,6 +50,11 @@ class ConversationRepositoryImpl implements ConversationRepository {
           ));
 
   @override
+  Future<void> updateBody(int id, String body) =>
+      (_db.update(_db.messages)..where((t) => t.id.equals(id)))
+          .write(MessagesCompanion(body: Value(body)));
+
+  @override
   Future<List<StoredMessage>> recent({int limit = 100}) async {
     final rows = await (_db.select(_db.messages)
           ..orderBy([(t) => OrderingTerm.desc(t.id)])

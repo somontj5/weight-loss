@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:weightloss/config/ai_config.dart';
 import 'package:weightloss/domain/context/context_assembler.dart';
 import 'package:weightloss/services/ai/ai_exceptions.dart';
+import 'package:weightloss/services/ai/media_preparer.dart';
 
 /// Низкоуровневый вызов модели. Абстракция нужна для тестов.
 abstract class ModelTransport {
@@ -15,6 +16,7 @@ abstract class ModelTransport {
     required String model,
     required String system,
     required List<ChatTurn> turns,
+    List<Attachment> attachments = const [],
   });
 }
 
@@ -32,31 +34,13 @@ class GeminiClient implements ModelTransport {
     required String model,
     required String system,
     required List<ChatTurn> turns,
+    List<Attachment> attachments = const [],
   }) async {
     if (!_config.hasKey) throw const AiNoKey();
 
     final uri = Uri.parse('${_config.baseUrl}/models/$model:generateContent');
-    final body = jsonEncode({
-      'systemInstruction': {
-        'parts': [
-          {'text': system}
-        ]
-      },
-      'contents': [
-        for (final t in turns)
-          {
-            'role': t.role,
-            'parts': [
-              {'text': t.text}
-            ]
-          }
-      ],
-      'generationConfig': {
-        'temperature': _config.temperature,
-        'maxOutputTokens': _config.maxOutputTokens,
-        'responseMimeType': 'application/json',
-      },
-    });
+    final body = jsonEncode(buildBody(system, turns, attachments));
+
 
     http.Response res;
     try {
@@ -77,6 +61,35 @@ class GeminiClient implements ModelTransport {
     }
 
     return parseHttp(res.statusCode, utf8.decode(res.bodyBytes));
+  }
+
+  /// Тело запроса. Вложения прикрепляются к ПОСЛЕДНЕМУ сообщению пользователя.
+  Map<String, dynamic> buildBody(
+      String system, List<ChatTurn> turns, List<Attachment> attachments) {
+    var lastUser = -1;
+    for (var i = 0; i < turns.length; i++) {
+      if (turns[i].role == 'user') lastUser = i;
+    }
+    final contents = <Map<String, dynamic>>[];
+    for (var i = 0; i < turns.length; i++) {
+      final parts = <Map<String, dynamic>>[];
+      if (i == lastUser) parts.addAll(attachments.map((a) => a.toPart()));
+      parts.add({'text': turns[i].text});
+      contents.add({'role': turns[i].role, 'parts': parts});
+    }
+    return {
+      'systemInstruction': {
+        'parts': [
+          {'text': system}
+        ]
+      },
+      'contents': contents,
+      'generationConfig': {
+        'temperature': _config.temperature,
+        'maxOutputTokens': _config.maxOutputTokens,
+        'responseMimeType': 'application/json',
+      },
+    };
   }
 
   /// Разбор HTTP-ответа (вынесен для тестов).

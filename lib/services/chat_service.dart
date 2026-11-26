@@ -9,6 +9,7 @@ import 'package:weightloss/domain/repositories/repositories.dart';
 import 'package:weightloss/services/ai/ai_exceptions.dart';
 import 'package:weightloss/services/ai/demo_responder.dart';
 import 'package:weightloss/services/ai/fitty_persona.dart';
+import 'package:weightloss/services/ai/media_preparer.dart';
 import 'package:weightloss/services/ai/model_router.dart';
 import 'package:weightloss/services/ai/reply_parser.dart';
 
@@ -20,6 +21,7 @@ class ChatReply {
     this.switchedModel = false,
     this.memoryChanged = false,
     this.food,
+    this.heard,
   });
 
   final String text;
@@ -32,6 +34,9 @@ class ChatReply {
 
   /// Что сделано с дневником (если модель присылала log_food).
   final FoodLogOutcome? food;
+
+  /// Расшифровка голосового (сохранена в тексте сообщения).
+  final String? heard;
 }
 
 /// Один «ход» разговора: контекст → Gemini → разбор ответа → память и резюме.
@@ -46,15 +51,18 @@ class ChatService {
     required this.aiConfig,
     required this.contextConfig,
     this.calc,
+    MediaPreparer? media,
     DemoResponder? demo,
     DateTime Function()? clock,
   })  : demo = demo ?? DemoResponder(),
+        media = media ?? MediaPreparer(),
         _clock = clock ?? DateTime.now;
 
   final ContextAssembler assembler;
   final ModelRouter router;
   final ActionDispatcher dispatcher;
   final DiaryCalc? calc;
+  final MediaPreparer media;
   final ConversationRepository conversation;
   final AiConfig aiConfig;
   final ContextConfig contextConfig;
@@ -68,6 +76,7 @@ class ChatService {
     String text = '',
     List<String> images = const [],
     Duration? audio,
+    String? audioPath,
   }) async {
     if (demoMode) {
       final t = await demo.reply(
@@ -99,6 +108,22 @@ class ChatService {
           ..writeln(_formatBatch(batch));
       }
 
+      // Вложения: фото (≤4, сжатые) и голосовое — к последнему сообщению.
+      final attachments =
+          await media.prepare(images: images, audioPath: audioPath);
+      final photos = attachments.where((a) => !a.isAudio).length;
+      final hasVoice = attachments.any((a) => a.isAudio);
+      if (attachments.isNotEmpty) {
+        system
+          ..writeln()
+          ..writeln('[ВЛОЖЕНИЯ] К последнему сообщению человека приложено: '
+              '${photos > 0 ? 'фото — $photos' : ''}'
+              '${photos > 0 && hasVoice ? ', ' : ''}'
+              '${hasVoice ? 'голосовое (слушай его сам)' : ''}. '
+              'Смотри/слушай их. ${hasVoice ? 'В поле "heard" верни дословную расшифровку голосового. ' : ''}'
+              '${images.length > photos ? 'Часть фото не дошла (максимум ${media.maxImages}). ' : ''}');
+      }
+
       var turns = ctx.turns;
       if (turns.isEmpty) {
         turns = [
@@ -107,7 +132,10 @@ class ChatService {
       }
 
       final routed =
-          await router.generate(system: system.toString(), turns: turns);
+          await router.generate(
+              system: system.toString(),
+              turns: turns,
+              attachments: attachments);
       final parsed = ReplyParser.parse(routed.text);
 
       // Единая точка обработки действий (память, дневник, …).
@@ -124,6 +152,18 @@ class ChatService {
         );
       } catch (_) {
         // действия не должны ронять ответ
+      }
+
+      String? heard;
+      if (hasVoice && parsed.heard != null) {
+        heard = parsed.heard!.length > 2000
+            ? parsed.heard!.substring(0, 2000)
+            : parsed.heard;
+        try {
+          await conversation.updateBody(userMessageId, heard!);
+        } catch (_) {
+          heard = null;
+        }
       }
 
       if (batch.isNotEmpty && parsed.summary != null) {
@@ -146,6 +186,7 @@ class ChatService {
         switchedModel: routed.switched,
         memoryChanged: dispatched.memoryChanged,
         food: dispatched.food,
+        heard: heard,
       );
     } on AiException catch (e) {
       return ChatReply(text: e.userMessage, notice: true);

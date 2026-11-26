@@ -45,6 +45,9 @@ abstract class ConversationRepository {
     DateTime? at,
   });
   Future<List<StoredMessage>> recent({int limit = 100});
+
+  /// Записывает расшифровку голосового (или правит текст) сообщения.
+  Future<void> updateBody(int id, String body);
   Future<List<StoredMessage>> lastChatMessages(int n);
 
   /// Сообщения чата, ещё не сжатые в резюме, кроме последних [keepLast].

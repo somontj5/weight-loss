@@ -144,11 +144,32 @@ class ChatProvider extends ChangeNotifier {
       waveform: audio.waveform,
     ));
     notifyListeners();
-    _enqueue(id, images: images, audio: audio.duration);
+    _enqueue(id,
+        images: images, audio: audio.duration, audioPath: audio.path);
+  }
+
+  /// Расшифровка голосового появляется под волной в том же сообщении.
+  void _applyHeard(int dbId, String heard) {
+    final i = _messages.indexWhere((m) => m.id == 'db$dbId');
+    if (i < 0) return;
+    final m = _messages[i];
+    _messages[i] = ChatMessage(
+      id: m.id,
+      sender: m.sender,
+      text: heard,
+      images: m.images,
+      audioPath: m.audioPath,
+      audioDuration: m.audioDuration,
+      waveform: m.waveform,
+      time: m.time,
+    );
   }
 
   void _enqueue(int userMessageId,
-      {String text = '', List<String> images = const [], Duration? audio}) {
+      {String text = '',
+      List<String> images = const [],
+      Duration? audio,
+      String? audioPath}) {
     _typing = true;
     notifyListeners();
     _queue = _queue.then((_) async {
@@ -157,7 +178,9 @@ class ChatProvider extends ChangeNotifier {
             userMessageId: userMessageId,
             text: text,
             images: images,
-            audio: audio);
+            audio: audio,
+            audioPath: audioPath);
+        if (r.heard != null) _applyHeard(userMessageId, r.heard!);
         final id = await _repo.addMessage(
             role: 'fitty', kind: r.notice ? 'notice' : 'chat', body: r.text);
         _messages

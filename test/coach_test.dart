@@ -5,9 +5,10 @@ import 'package:weightloss/data/repositories/workout_repository_impl.dart';
 import 'package:weightloss/domain/actions/action_dispatcher.dart';
 import 'package:weightloss/domain/actions/plan_workout_handler.dart';
 import 'package:weightloss/domain/coach/coach_models.dart';
-import 'package:weightloss/domain/coach/coach_rules.dart';
+import 'package:weightloss/domain/coach/offline_coach.dart';
 import 'package:weightloss/domain/coach/coach_service.dart';
-import 'package:weightloss/domain/coach/workout_builder.dart';
+import 'package:weightloss/domain/coach/offline_workout_builder.dart';
+import 'package:weightloss/domain/coach/plan_validator.dart';
 import 'package:weightloss/domain/context/context_assembler.dart';
 import 'package:weightloss/domain/diary/diary_service.dart';
 import 'package:weightloss/domain/diary/food_action.dart';
@@ -136,219 +137,100 @@ void main() {
     });
   });
 
-  group('решение тренера', () {
-    test('обычный день: тренировка нужна, время по слоту из регистрации', () {
-      final d = CoachRules.decide(_in(hist: _hist(3)));
-      expect(d.needed, isTrue);
-      expect(d.when, DateTime(2026, 3, 10, 19, 30));
-      expect(d.minutes, 20);
-      expect(d.escalated, isFalse);
+  group('проверка плана Фитти (только техническая)', () {
+    final now = DateTime(2026, 3, 10, 14, 0);
+    ValidatedPlan? v(List<Map<String, dynamic>> picks,
+            {Object? when, Object? diff, int qf = 22 * 60 + 30, int qt = 7 * 60 + 30}) =>
+        PlanValidator.validate(
+            picks: picks, now: now, scheduledFor: when, difficulty: diff,
+            quietFromMin: qf, quietToMin: qt);
+
+    test('чужие id отбрасываются, остальное принимается как есть', () {
+      final r = v([
+        {'id': 'squat', 'durationSec': 40, 'restSec': 20},
+        {'id': 'ВЫДУМАЛ'},
+        {'id': 'plank'},
+      ], when: '2026-03-10T19:30', diff: 3)!;
+      expect(r.droppedUnknown, 1);
+      expect(r.workout.exercises.map((e) => e.id), ['squat', 'plank']);
+      expect(r.difficulty, 3);
+      expect(r.scheduledAt, DateTime(2026, 3, 10, 19, 30));
+      expect(r.timeMoved, isFalse);
     });
 
-    test('слот прошёл: ближайшее время сегодня; поздно вечером завтра', () {
-      final a = CoachRules.decide(
-          _in(now: DateTime(2026, 3, 10, 20, 10), hist: _hist(3)));
-      expect(a.when!.isAfter(DateTime(2026, 3, 10, 20, 10)), isTrue);
-      expect(a.when!.day, 10);
-      final b = CoachRules.decide(
-          _in(now: DateTime(2026, 3, 10, 22, 0), hist: _hist(3)));
-      expect(b.when!.day, 11);
+    test('код не добавляет и не подрезает упражнения по своим правилам', () {
+      final r = v([for (final i in ['squat', 'squat', 'plank']) {'id': i, 'durationSec': 30, 'restSec': 10}],
+          when: '2026-03-10T19:30')!;
+      expect(r.workout.exercises.length, 3);
+      expect(r.trimmed, isFalse);
+      final hard = catalogHard();
+      final r2 = v([{'id': hard}], when: '2026-03-10T19:30', diff: 1)!;
+      expect(r2.workout.exercises.single.id, hard);
     });
 
-    test('съедено сверх плана сегодня: сложность растёт', () {
-      final base = CoachRules.decide(_in(hist: _hist(4)));
-      final over = CoachRules.decide(
-          _in(hist: _hist(4), eaten: 2300, entries: 3));
-      expect(over.escalated, isTrue);
-      expect(over.difficulty, base.difficulty + 1);
-      expect(over.minutes, greaterThan(base.minutes));
-      expect(over.reasons.join(), contains('сверх нормы'));
+    test('границы: упражнение 20-90 сек, отдых 0-60 сек', () {
+      final r = v([
+        {'id': 'squat', 'durationSec': 5, 'restSec': -3},
+        {'id': 'plank', 'durationSec': 500, 'restSec': 999},
+        {'id': 'lunge', 'durationSec': '45', 'restSec': 'мусор'},
+      ], when: '2026-03-10T19:30')!;
+      final e = r.workout.exercises;
+      expect(e[0].durationSec, 20);
+      expect(e[0].restSec, 0);
+      expect(e[1].durationSec, 90);
+      expect(e[1].restSec, 60);
+      expect(e[2].durationSec, 45);
+      expect(e[2].restSec, 20);
     });
 
-    test('в пределах допуска сложность не растёт', () {
-      final d = CoachRules.decide(_in(hist: _hist(4), eaten: 1880, entries: 3));
-      expect(d.escalated, isFalse);
+    test('общая длительность не больше 60 минут', () {
+      final r = v([for (var i = 0; i < 60; i++) {'id': i.isEven ? 'squat' : 'plank', 'durationSec': 90, 'restSec': 60}],
+          when: '2026-03-10T19:30')!;
+      expect(PlanValidator.total(r.workout.exercises), lessThanOrEqualTo(3600));
+      expect(r.trimmed, isTrue);
     });
 
-    test('сверх плана за неделю: сложность растёт', () {
-      final past = [
-        for (var i = 1; i <= 4; i++)
-          DayKcal(DateTime(2026, 3, 10 - i), 2200),
-      ];
-      final d = CoachRules.decide(_in(hist: _hist(4), past: past));
-      expect(d.escalated, isTrue);
-      expect(d.reasons.join(), contains('за неделю'));
+    test('все id чужие: плана нет', () {
+      expect(v([{'id': 'нет'}, {'id': 'тоже нет'}]), isNull);
+      expect(v([]), isNull);
     });
 
-    test('плохое самочувствие: не усложняем, при болезни отдых', () {
-      final tired = CoachRules.decide(_in(
-          hist: _hist(8), eaten: 2600, entries: 3, wb: Wellbeing.tired));
-      expect(tired.needed, isTrue);
-      expect(tired.escalated, isFalse);
-      expect(tired.difficulty, 1);
-      expect(tired.minutes, lessThanOrEqualTo(15));
-      final sick = CoachRules.decide(
-          _in(hist: _hist(8), eaten: 2600, entries: 3, wb: Wellbeing.sick));
-      expect(sick.needed, isFalse);
-      expect(sick.restReason, contains('самочувствие'));
+    test('время: тихие часы переносятся на конец тишины', () {
+      final r = v([{'id': 'squat'}], when: '2026-03-10T23:30')!;
+      expect(r.timeMoved, isTrue);
+      expect(r.scheduledAt, DateTime(2026, 3, 11, 7, 30));
+      final r2 = v([{'id': 'squat'}], when: '2026-03-11T03:00')!;
+      expect(r2.scheduledAt, DateTime(2026, 3, 11, 7, 30));
+      final r3 = v([{'id': 'squat'}], when: '2026-03-11T08:00', qf: 23 * 60, qt: 9 * 60)!;
+      expect(r3.scheduledAt, DateTime(2026, 3, 11, 9, 0));
     });
 
-    test('возраст и вес ограничивают сложность и ударные упражнения', () {
-      final old = CoachRules.decide(
-          _in(age: 62, hist: _hist(10), eaten: 2800, entries: 3));
-      expect(old.needed, isTrue);
-      expect(old.maxDifficulty, 1);
-      expect(old.difficulty, 1);
-      expect(old.escalated, isFalse); // потолок: усложнять некуда
-      expect(old.allowHighImpact, isFalse);
-      final heavy = CoachRules.decide(
-          _in(weight: 110, height: 170, hist: _hist(10), eaten: 2800, entries: 3));
-      expect(heavy.needed, isTrue);
-      expect(heavy.maxDifficulty, 1);
-      expect(heavy.allowHighImpact, isFalse);
-      final young = CoachRules.decide(_in(hist: _hist(10)));
-      expect(young.allowHighImpact, isTrue);
-      expect(CoachRules.decide(_in(joint: true, hist: _hist(10))).allowHighImpact,
-          isFalse);
+    test('время: прошлое, дальше 48 часов или мусор — ближайшее разумное', () {
+      for (final w in ['2026-03-09T10:00', '2030-01-01T10:00', 'когда-нибудь', null]) {
+        final r = v([{'id': 'squat'}], when: w)!;
+        expect(r.timeMoved, isTrue, reason: '$w');
+        expect(r.scheduledAt, DateTime(2026, 3, 10, 14, 30));
+      }
+      final ok = v([{'id': 'squat'}], when: '2026-03-12T10:00')!;
+      expect(ok.scheduledAt, DateTime(2026, 3, 12, 10, 0));
+      final night = PlanValidator.nearestReasonable(
+          DateTime(2026, 3, 10, 23, 50), 22 * 60 + 30, 7 * 60 + 30);
+      expect(night, DateTime(2026, 3, 11, 7, 30));
     });
 
-    test('новичку сразу сложность 3 не дают', () {
-      final d = CoachRules.decide(_in(eaten: 2800, entries: 3));
-      expect(d.difficulty, lessThanOrEqualTo(2));
-    });
-
-    test('прервал или пропускал: следующий план легче и короче', () {
-      final good = CoachRules.decide(_in(hist: _hist(6)));
-      final bad = CoachRules.decide(_in(hist: [
-        _rec(2, status: 'aborted', diff: 2),
-        ..._hist(5).skip(1),
-      ]));
-      expect(good.needed && bad.needed, isTrue);
-      expect(good.difficulty, 3);
-      expect(bad.difficulty, lessThan(good.difficulty));
-      expect(bad.minutes, lessThan(good.minutes));
-      expect(bad.reasons.join(), contains('тяжело'));
-    });
-
-    test('три неудачи подряд: мягкое возвращение, без усложнения', () {
-      final d = CoachRules.decide(_in(
-          hist: [_rec(2, status: 'skipped'), _rec(3, status: 'aborted'), _rec(4, status: 'skipped')],
-          eaten: 2600,
-          entries: 3));
-      expect(d.difficulty, 1);
-      expect(d.escalated, isFalse);
-    });
-
-    test('отдых: уже тренировался сегодня, две подряд, неделя, тяжёлая вчера',
-        () {
-      expect(CoachRules.decide(_in(doneToday: true)).needed, isFalse);
-      expect(
-          CoachRules.decide(_in(hist: [_rec(1), _rec(2)])).restReason,
-          contains('две тренировки'));
-      expect(
-          CoachRules.decide(
-                  _in(hist: [for (var i = 0; i < 5; i++) _rec(i + 1)]))
-              .needed,
-          isFalse);
-      final heavy = CoachRules.decide(_in(hist: [_rec(1, diff: 3)]));
-      expect(heavy.needed, isFalse);
-      // но при перееданиии отдых отменяется
-      final over = CoachRules.decide(
-          _in(hist: [_rec(1, diff: 3)], eaten: 2400, entries: 3));
-      expect(over.needed, isTrue);
-    });
-
-    test('мало съедено к вечеру: не усложняем', () {
-      final d = CoachRules.decide(_in(
-          now: DateTime(2026, 3, 10, 18, 0),
-          hist: _hist(8),
-          eaten: 700,
-          entries: 1,
-          past: [for (var i = 1; i <= 4; i++) DayKcal(DateTime(2026, 3, 10 - i), 2400)]));
-      expect(d.escalated, isFalse);
-      expect(d.difficulty, lessThanOrEqualTo(2));
+    test('сложность вне 1-3 приводится к границам', () {
+      expect(v([{'id': 'squat'}], when: '2026-03-10T19:30', diff: 9)!.difficulty, 3);
+      expect(v([{'id': 'squat'}], when: '2026-03-10T19:30', diff: 0)!.difficulty, 1);
     });
   });
 
-  group('сборка тренировки из выбора модели', () {
-    CoachDecision dec({int diff = 2, bool impact = true, int min = 20}) =>
-        CoachDecision(
-            needed: true,
-            difficulty: diff,
-            minutes: min,
-            maxDifficulty: 3,
-            allowHighImpact: impact,
-            when: DateTime(2026, 3, 10, 19));
-
-    test('чужие id отбрасываются, сложность и ударные контролирует код', () {
-      final w = WorkoutBuilder.build(
-        decision: dec(diff: 1, impact: false),
-        picks: [
-          {'id': 'squat', 'durationSec': 40, 'restSec': 20},
-          {'id': 'выдуманное'},
-          {'id': 'burpee'}, // сложность 3 и ударное
-          {'id': 'jumping_jack'}, // ударное
-          {'id': 'plank'}, // сложность 2 > 1
-          {'id': 'glute_bridge', 'durationSec': 9999, 'restSec': -3},
-        ],
-      );
-      final ids = w.exercises.map((e) => e.id).toList();
-      // squat (сложность 2) при уровне 1 убирается, glute_bridge (1) остаётся
-      expect(ids, isNot(contains('squat')));
-      expect(ids, contains('glute_bridge'));
-      for (final id in ['выдуманное', 'burpee', 'jumping_jack', 'plank']) {
-        expect(ids, isNot(contains(id)), reason: id);
-      }
-      for (final e in w.exercises) {
-        expect(e.durationSec, inInclusiveRange(20, 90));
-        expect(e.restSec, inInclusiveRange(0, 60));
-        final t = catalogById(e.id)!;
-        if (t.stage == 'main') expect(t.difficulty, lessThanOrEqualTo(1));
-      }
-    });
-
-    test('есть разминка и растяжка, нет повторов подряд, длительность близка',
-        () {
-      final w = WorkoutBuilder.build(
-        decision: dec(min: 20),
-        picks: [
-          {'id': 'squat'},
-          {'id': 'squat'},
-          {'id': 'lunge'},
-        ],
-      );
-      expect(catalogById(w.exercises.first.id)!.stage, 'warmup');
-      expect(catalogById(w.exercises.last.id)!.stage, 'cooldown');
-      expect(w.exercises.last.restSec, 0);
-      for (var i = 1; i < w.exercises.length; i++) {
-        expect(w.exercises[i].id, isNot(w.exercises[i - 1].id));
-      }
-      expect(w.totalSec, inInclusiveRange(15 * 60, 25 * 60));
-    });
-
-    test('модель прислала пустой или мусорный список: план строит код', () {
-      for (final picks in [
-        <Map<String, dynamic>>[],
-        [
-          {'id': 'нет'},
-          {'x': 1}
-        ]
-      ]) {
-        final w = WorkoutBuilder.build(decision: dec(), picks: picks);
-        expect(w.exercises.length, greaterThan(4));
-        expect(w.totalSec, inInclusiveRange(15 * 60, 25 * 60));
-      }
-    });
-
-    test('слишком длинный выбор модели подрезается под длительность', () {
-      final w = WorkoutBuilder.build(
-        decision: dec(min: 15),
-        picks: [
-          for (final t in kExerciseCatalog.where((t) => t.stage == 'main'))
-            {'id': t.id, 'durationSec': 60, 'restSec': 30}
-        ],
-      );
-      expect(w.totalSec, lessThan(15 * 60 * 1.3));
+  group('запасной офлайн-тренер', () {
+    test('офлайн-план собирается и помечен «Офлайн-план»', () {
+      final d = OfflineCoach.decide(_in(hist: _hist(3)));
+      expect(d.needed, isTrue);
+      final w = OfflineWorkoutBuilder.build(decision: d, picks: const []);
+      expect(w.title, contains('Офлайн-план'));
+      expect(w.exercises, isNotEmpty);
     });
   });
 
@@ -400,19 +282,27 @@ void main() {
       );
     }
 
-    test('результат сохраняется: выполнено, пропущено, паузы, прервано', () async {
-      final w = WorkoutBuilder.build(
-          decision: CoachRules.decide(_in(hist: _hist(3))), picks: const []);
-      final id = await repo.savePlan(
+    Future<int> savePlan() async {
+      final w = OfflineWorkoutBuilder.build(
+          decision: OfflineCoach.decide(_in(hist: _hist(3))), picks: const []);
+      return repo.savePlan(
           workout: w,
           scheduledAt: DateTime(2026, 3, 10, 19, 30),
           difficulty: 2,
           source: 'coach',
           now: env.now);
+    }
+
+    ActionDispatcher disp() => ActionDispatcher(
+          memory: MemoryService(env.memory, clock: () => env.now),
+          handlers: [PlanWorkoutHandler(coach)],
+        );
+
+    test('результат сохраняется: выполнено, пропущено, паузы, прервано', () async {
+      final id = await savePlan();
       await coach.saveResult(id, session(pauses: [15, 30]));
       await coach.saveResult(null, session(early: true, statuses: ['completed', 'stopped_early', 'not_started']));
       expect(changed, 2);
-
       final rows = await env.db.select(env.db.workoutResults).get();
       expect(rows.length, 2);
       final a = rows.firstWhere((r) => r.status == 'completed');
@@ -425,17 +315,9 @@ void main() {
       expect(a.workoutId, id);
       final b = rows.firstWhere((r) => r.status == 'aborted');
       expect(b.note, contains('досрочно'));
-
-      // план помечен выполненным
-      final plan = await (env.db.select(env.db.workouts)
-            ..where((x) => x.id.equals(id)))
-          .getSingle();
+      final plan = await (env.db.select(env.db.workouts)..where((x) => x.id.equals(id))).getSingle();
       expect(plan.status, 'done');
       expect(await repo.nextPlanned(env.now), isNull);
-
-      final recent = await repo.recentResults();
-      expect(recent.length, 2);
-      expect(recent.any((r) => r.difficulty == 2), isTrue);
     });
 
     test('результаты попадают в [ТРЕНИРОВКИ] контекста', () async {
@@ -453,155 +335,144 @@ void main() {
       expect(c.contextText, contains('пропущено упражнений'));
     });
 
-    test('результат влияет на следующее решение', () async {
-      for (var i = 0; i < 4; i++) {
-        await coach.saveResult(
-            null,
-            session(
-                statuses: ['completed', 'completed'],
-                at: DateTime(2026, 3, 1 + i * 2, 19)));
-      }
-      final before = (await coach.decide())!;
-      expect(before.needed, isTrue);
-      await coach.saveResult(
-          null,
-          WorkoutSession(
-            startedAt: DateTime(2026, 3, 9, 19),
-            title: 'T',
-            plannedSec: 600,
-            activeSec: 60,
-            pausedSec: 0,
-            kcal: 10,
-            finishedEarly: true,
-            logs: [],
-          ));
-      final after = (await coach.decide())!;
-      expect(after.needed, isTrue);
-      expect(after.difficulty, lessThanOrEqualTo(before.difficulty));
-      expect(after.minutes, lessThanOrEqualTo(before.minutes));
-    });
-
-    test('блок [ТРЕНЕР]: решение кода, каталог, причины', () async {
-      await diary.apply(const FoodLogRequest(
-          op: 'add', description: 'Пир', kcal: 3200, meal: 'lunch'));
+    test('блок [ДАННЫЕ ДЛЯ ТРЕНЕРА]: только факты, без решений', () async {
+      await diary.apply(const FoodLogRequest(op: 'add', description: 'Пир', kcal: 3200, meal: 'lunch'));
+      await coach.saveResult(null, session(at: DateTime(2026, 3, 8, 19)));
       final b = await coach.block();
-      expect(b, contains('[ТРЕНЕР]'));
-      expect(b, contains('Тренировка нужна'));
-      expect(b, contains('сверх нормы'));
+      expect(b, contains('[ДАННЫЕ ДЛЯ ТРЕНЕРА]'));
+      expect(b, isNot(contains('[ТРЕНЕР]')));
+      expect(b, contains('Съедено сегодня: ~3200'));
+      expect(b, contains('Дней без тренировок: 2'));
+      expect(b, contains('Возраст: 30'));
+      expect(b, contains('Время на тренировки: 30 мин'));
       expect(b, contains('squat|'));
-      expect(b, contains('ты его не меняешь'));
+      expect(b, contains('|main|'));
+      expect(b, contains('|warmup|'));
+      expect(b, contains('|cooldown|'));
+      expect(b, contains('ударное'));
+      expect(b, contains('Последние тренировки'));
+      expect(b, contains('упражнений выполнено 2, пропущено 1'));
+      for (final bad in [
+        'ты его не меняешь', 'Тренировка нужна', 'не нужна', 'ПОВЫШЕНА',
+        'запрещены', 'Причины', 'потолок', 'решение принял',
+      ]) {
+        expect(b, isNot(contains(bad)), reason: bad);
+      }
     });
 
-    test('блок [ТРЕНЕР]: болезнь из памяти → отдых, без каталога', () async {
+    test('блок: память health.*, fitness.*, feeling.* как факты, без решения', () async {
       await MemoryService(env.memory, clock: () => env.now).apply([
-        const MemoryUpdate(
-            key: 'health.wellbeing',
-            fact: 'Заболел, температура',
-            category: 'health'),
+        const MemoryUpdate(key: 'health.wellbeing', fact: 'Заболел, температура', category: 'health'),
+        const MemoryUpdate(key: 'fitness.level', fact: 'Новичок', category: 'habit'),
+        const MemoryUpdate(key: 'fitness.limits', fact: 'Болит колено', category: 'health'),
+        const MemoryUpdate(key: 'feeling.today', fact: 'Устал', category: 'other'),
+        const MemoryUpdate(key: 'food.dislikes', fact: 'Не любит рыбу', category: 'food'),
       ]);
       final b = await coach.block();
-      expect(b, contains('не нужна'));
-      expect(b, isNot(contains('squat|')));
+      expect(b, contains('health.wellbeing: Заболел, температура'));
+      expect(b, contains('fitness.level: Новичок'));
+      expect(b, contains('fitness.limits: Болит колено'));
+      expect(b, contains('feeling.today: Устал'));
+      expect(b, isNot(contains('food.dislikes')));
+      expect(b, isNot(contains('не нужна')));
+      expect(b, contains('squat|'));
+      expect(b, isNot(contains('данных нет (fitness.level')));
     });
 
-    test('самочувствие старше трёх суток не учитывается', () async {
-      await MemoryService(env.memory, clock: () => DateTime(2026, 3, 1)).apply([
-        const MemoryUpdate(
-            key: 'health.wellbeing', fact: 'Болею', category: 'health'),
-      ]);
-      final d = (await coach.decide())!;
-      expect(d.needed, isTrue);
+    test('блок: нет данных про опыт и здоровье — сказано фактом', () async {
+      final b = await coach.block();
+      expect(b, contains('Тренировок в приложении ещё не было'));
+      expect(b, contains('fitness.level, fitness.limits, health.*'));
+      expect(b, contains('Запланированных тренировок нет'));
     });
 
-    test('plan_workout через диспетчер: код ставит время и сложность', () async {
-      final disp = ActionDispatcher(
-        memory: MemoryService(env.memory, clock: () => env.now),
-        handlers: [PlanWorkoutHandler(coach)],
-      );
-      final r = await disp.handle(
-          ReplyParser.parse('''{"reply":"Готово!","actions":[{"type":"plan_workout",
-"title":"Вечерний заряд","intro":"Поехали!","difficulty":3,"scheduledAt":"2030-01-01T10:00",
-"exercises":[{"id":"squat","durationSec":40,"restSec":20},{"id":"ВЫДУМАЛ"}]}]}'''),
+    test('результаты влияют на контекст', () async {
+      expect(await coach.block(), contains('ещё не было'));
+      await coach.saveResult(null, session(at: DateTime(2026, 3, 9, 19)));
+      expect(await coach.block(), contains('Дней без тренировок: 1'));
+      await coach.saveResult(null, session(early: true, statuses: ['completed'], at: DateTime(2026, 3, 10, 9)));
+      final after = await coach.block();
+      expect(after, contains('Дней без тренировок: 0'));
+      expect(after, contains('прервана'));
+    });
+
+    test('plan_workout через диспетчер: время, сложность и состав у Фитти', () async {
+      final r = await disp().handle(
+          ReplyParser.parse('{"reply":"Готово!","actions":[{"type":"plan_workout","title":"Вечерний заряд","intro":"Поехали!","difficulty":3,"scheduledFor":"2026-03-10T20:15","exercises":[{"id":"squat","durationSec":40,"restSec":20},{"id":"ВЫДУМАЛ"}]}]}'),
           DispatchContext(userMessageId: 1, now: env.now));
       expect(r.footers.single, contains('Тренировка готова'));
       final p = (await repo.nextPlanned(env.now))!;
       expect(p.workout.title, 'Вечерний заряд');
-      expect(p.scheduledAt, DateTime(2026, 3, 10, 19, 30)); // время — от кода
-      expect(p.difficulty, isNot(3)); // сложность — от кода
+      expect(p.scheduledAt, DateTime(2026, 3, 10, 20, 15));
+      expect(p.difficulty, 3);
       expect(p.source, 'coach');
-      expect(p.workout.exercises.any((e) => e.id == 'ВЫДУМАЛ'), isFalse);
+      expect(p.workout.exercises.map((e) => e.id), ['squat']);
       expect(coach.revision.value, 1);
     });
 
-    test('plan_workout, когда тренировка не нужна: игнорируется', () async {
-      await coach.saveResult(null, session());
-      final disp = ActionDispatcher(
-        memory: MemoryService(env.memory, clock: () => env.now),
-        handlers: [PlanWorkoutHandler(coach)],
-      );
-      final r = await disp.handle(
-          ReplyParser.parse(
-              '{"reply":"ок","actions":[{"type":"plan_workout","exercises":[{"id":"squat"}]}]}'),
+    test('plan_workout в тихие часы переносится; болезнь код не блокирует', () async {
+      await MemoryService(env.memory, clock: () => env.now).apply([
+        const MemoryUpdate(key: 'health.wellbeing', fact: 'Болею', category: 'health'),
+      ]);
+      final r = await disp().handle(
+          ReplyParser.parse('{"reply":"ок","actions":[{"type":"plan_workout","difficulty":1,"scheduledFor":"2026-03-10T23:45","exercises":[{"id":"squat"}]}]}'),
           DispatchContext(userMessageId: 1, now: env.now));
-      expect(r.footers, isEmpty);
+      expect(r.footers.single, contains('перенесено'));
+      final p = (await repo.nextPlanned(env.now))!;
+      expect(p.scheduledAt, DateTime(2026, 3, 11, 7, 30));
+    });
+
+    test('plan_workout без годных упражнений: честное сообщение, плана нет', () async {
+      final r = await disp().handle(
+          ReplyParser.parse('{"reply":"ок","actions":[{"type":"plan_workout","exercises":[{"id":"нет"}]}]}'),
+          DispatchContext(userMessageId: 1, now: env.now));
+      expect(r.footers.single, contains('Не получилось'));
       expect(await repo.nextPlanned(env.now), isNull);
     });
 
-    test('переедание после записи еды усложняет сегодняшний план', () async {
+    test('съели много: код сам план не создаёт и не усложняет', () async {
+      env.now = DateTime(2026, 3, 10, 19, 0);
+      coach.aiOnline = true;
       await coach.maintain();
-      env.now = DateTime(2026, 3, 10, 19, 0); // близко к времени тренировки
-      await coach.maintain();
-      final p0 = (await repo.nextPlanned(env.now))!;
-      expect(p0.source, 'local');
+      expect(await repo.nextPlanned(env.now), isNull);
+      await diary.apply(const FoodLogRequest(op: 'add', description: 'Пир', kcal: 3500, meal: 'dinner'));
+      expect(await repo.nextPlanned(env.now), isNull);
+    });
 
-      // история, чтобы потолок позволял усложнение
-      for (var i = 0; i < 4; i++) {
-        await coach.saveResult(
-            null,
-            session(
-                statuses: ['completed', 'completed'],
-                at: DateTime(2026, 3, 1 + i * 2, 19)));
-      }
+    test('без сети: запасной план, помечен «офлайн-план»', () async {
+      env.now = DateTime(2026, 3, 10, 19, 0);
+      coach.aiOnline = false;
       await coach.maintain();
-      await diary.apply(const FoodLogRequest(
-          op: 'add', description: 'Пир', kcal: 3500, meal: 'dinner'));
-      final line = await coach.afterFood();
-      expect(line, isNotNull);
-      expect(line, contains('посложнее'));
-      final p1 = (await repo.nextPlanned(env.now))!;
-      expect(p1.difficulty, greaterThan(p0.difficulty));
-      expect(p1.difficulty, 3);
+      final p = (await repo.nextPlanned(env.now))!;
+      expect(p.source, 'offline');
+      expect(p.workout.title, contains('Офлайн-план'));
+      expect(p.workout.intro, contains('Офлайн-план'));
+      expect(await coach.block(), contains('офлайн-план'));
     });
 
     test('пропущенный вчерашний план закрывается как «пропущено»', () async {
-      final w = WorkoutBuilder.build(
-          decision: CoachRules.decide(_in(hist: _hist(3))), picks: const []);
+      final w = OfflineWorkoutBuilder.build(
+          decision: OfflineCoach.decide(_in(hist: _hist(3))), picks: const []);
       await repo.savePlan(
           workout: w,
           scheduledAt: DateTime(2026, 3, 9, 19, 30),
           difficulty: 2,
           source: 'coach',
           now: DateTime(2026, 3, 9, 10));
+      coach.aiOnline = true;
       await coach.maintain();
       final rows = await env.db.select(env.db.workoutResults).get();
       expect(rows.single.status, 'skipped');
-      final recent = await repo.recentResults();
-      expect(recent.single.status, 'skipped');
       expect(changed, greaterThan(0));
     });
 
     test('новый план на тот же день заменяет прежний', () async {
-      final w = WorkoutBuilder.build(
-          decision: CoachRules.decide(_in(hist: _hist(3))), picks: const []);
-      for (var i = 0; i < 2; i++) {
-        await repo.savePlan(
-            workout: w,
-            scheduledAt: DateTime(2026, 3, 10, 19, 30),
-            difficulty: 2,
-            source: 'coach',
-            now: env.now);
-      }
+      await savePlan();
+      await savePlan();
       expect((await env.db.select(env.db.workouts).get()).length, 1);
     });
   });
 }
+
+String catalogHard() =>
+    ExerciseCatalog.all.firstWhere((t) => t.stage == 'main' && t.difficulty == 3).id;

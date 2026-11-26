@@ -2,10 +2,9 @@ import 'package:weightloss/data/exercise_catalog.dart';
 import 'package:weightloss/domain/coach/coach_models.dart';
 import 'package:weightloss/models/workout.dart';
 
-/// Строит тренировку из выбора модели (id из каталога). Сложность,
-/// длительность и ударные упражнения контролирует КОД: всё лишнее убирается,
-/// недостающее добавляется.
-class WorkoutBuilder {
+/// Запасная сборка плана БЕЗ сети (офлайн-тренер). Для планов Фитти не
+/// используется: там действует только техническая проверка (PlanValidator).
+class OfflineWorkoutBuilder {
   static const minWork = 20;
   static const maxWork = 90;
   static const minRest = 5;
@@ -191,7 +190,7 @@ class WorkoutBuilder {
 
     final tt = clip(title, 60);
     return Workout(
-      title: tt.isEmpty ? 'Тренировка на ${decision.minutes} минут' : tt,
+      title: tt.isEmpty ? 'Офлайн-план на ${decision.minutes} минут' : tt,
       intro: clip(intro, 300),
       exercises: list,
       source: WorkoutSource.ai,

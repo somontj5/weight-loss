@@ -53,6 +53,7 @@ class ChatService {
     this.calc,
     this.onScheduleDirty,
     this.coachBlock,
+    this.onAiStatus,
     MediaPreparer? media,
     DemoResponder? demo,
     DateTime Function()? clock,
@@ -69,8 +70,11 @@ class ChatService {
   /// (записана еда, обновилась память о режиме дня, поставлено напоминание).
   final Future<void> Function()? onScheduleDirty;
 
-  /// Блок [ТРЕНЕР]: решение кода, которое модель только объясняет.
+  /// Блок [ДАННЫЕ ДЛЯ ТРЕНЕРА]: только факты, решает модель.
   final Future<String> Function()? coachBlock;
+
+  /// Сообщает, отвечает ли ИИ (true) или недоступен (false).
+  final void Function(bool ok)? onAiStatus;
   final MediaPreparer media;
   final ConversationRepository conversation;
   final AiConfig aiConfig;
@@ -220,6 +224,7 @@ class ChatService {
       final answer = dispatched.footers.isEmpty
           ? parsed.text
           : '${parsed.text}\n\n${dispatched.footers.join('\n')}';
+      onAiStatus?.call(true);
       return ChatReply(
         text: answer,
         model: routed.model,
@@ -229,6 +234,7 @@ class ChatService {
         heard: heard,
       );
     } on AiException catch (e) {
+      if (e is AiOffline) onAiStatus?.call(false);
       return ChatReply(text: e.userMessage, notice: true);
     } catch (_) {
       return const ChatReply(

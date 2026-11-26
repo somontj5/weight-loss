@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:weightloss/config/ai_config.dart';
+import 'package:weightloss/domain/notifications/notification_planner.dart';
 import 'package:weightloss/config/context_config.dart';
 import 'package:weightloss/data/db/app_database.dart';
 import 'package:weightloss/data/db/connection.dart';
@@ -75,11 +79,23 @@ class AppDeps {
       memory: memoryRepo,
       workouts: workoutRepo,
       onChanged: notifications.reschedule,
+      quietRange: () async =>
+          NotificationPlanner.quietRange(await notifications.buildInput()),
+      onlineProbe: () async {
+        if (!aiConfig.hasKey || kIsWeb) return false;
+        try {
+          final r = await InternetAddress.lookup(
+            'generativelanguage.googleapis.com',
+          ).timeout(const Duration(seconds: 3));
+          return r.isNotEmpty;
+        } catch (_) {
+          return false;
+        }
+      },
     );
-    notifications.plannedWorkouts =
-        () => workoutRepo.plannedTimes(DateTime.now());
+    notifications.plannedWorkouts = () =>
+        workoutRepo.plannedTimes(DateTime.now());
     dispatcher = ActionDispatcher(
-      afterFood: coach.afterFood,
       memory: memoryService,
       diary: diary,
       calc: diaryCalc,
@@ -106,6 +122,7 @@ class AppDeps {
       calc: diaryCalc,
       onScheduleDirty: notifications.reschedule,
       coachBlock: coach.block,
+      onAiStatus: (ok) => coach.aiOnline = ok,
       conversation: conversation,
       aiConfig: aiConfig,
       contextConfig: contextConfig,

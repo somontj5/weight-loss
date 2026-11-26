@@ -1,9 +1,9 @@
 import 'package:weightloss/domain/actions/action_dispatcher.dart';
 import 'package:weightloss/domain/coach/coach_service.dart';
 
-/// plan_workout: title, intro, exercises[{id, durationSec, restSec}].
-/// Модель выбирает только упражнения из каталога; сложность, длительность
-/// и время ставит код.
+/// plan_workout: title, intro, difficulty, scheduledFor, exercises
+/// [{id, durationSec, restSec}]. Всё решает Фитти, код только проверяет
+/// технически (PlanValidator).
 class PlanWorkoutHandler extends ActionHandler {
   PlanWorkoutHandler(this.coach);
   final CoachService coach;
@@ -28,6 +28,8 @@ class PlanWorkoutHandler extends ActionHandler {
       title: data['title']?.toString(),
       intro: data['intro']?.toString(),
       picks: picks,
+      difficulty: data['difficulty'],
+      scheduledFor: data['scheduledFor'] ?? data['scheduledAt'],
     );
   }
 }

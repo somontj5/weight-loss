@@ -1,7 +1,7 @@
 import 'package:weightloss/domain/coach/coach_models.dart';
 
-/// Решение тренера принимает КОД. Модель его только объясняет.
-class CoachRules {
+/// ЗАПАСНОЙ офлайн-тренер: работает только без сети. Когда сеть есть, решает Фитти.
+class OfflineCoach {
   static const maxPerWeek = 5;
   static const lateHour = 21; // после 21:30 назначаем на завтра
 

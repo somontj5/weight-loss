@@ -53,7 +53,6 @@ class ActionDispatcher {
     this.diary,
     this.calc,
     this.handlers = const [],
-    this.afterFood,
   });
 
   final MemoryService memory;
@@ -62,10 +61,6 @@ class ActionDispatcher {
 
   /// Дополнительные обработчики (например, set_activity).
   final List<ActionHandler> handlers;
-
-  /// После успешной записи еды (тренер может усложнить сегодняшний план).
-  /// Возвращает строку-подвал или null.
-  final Future<String?> Function()? afterFood;
 
   /// Типы действий частей 2Б/3: пока принимаются и игнорируются.
   static const deferredTypes = {
@@ -137,10 +132,6 @@ class ActionDispatcher {
             );
             final f = await calc?.footer(food);
             if (f != null) footers.add(f);
-            if (food.ok && afterFood != null) {
-              final extra = await afterFood!();
-              if (extra != null) footers.add(extra);
-            }
           } catch (_) {
             ignored.add('log_food(ошибка)');
           }

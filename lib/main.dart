@@ -10,6 +10,7 @@ import 'package:weightloss/ui/providers/workout_hub.dart';
 import 'package:weightloss/ui/screens/home_shell.dart';
 import 'package:weightloss/ui/screens/onboarding_screen.dart';
 import 'package:weightloss/services/audio_playback.dart';
+import 'package:weightloss/domain/notifications/notification_models.dart';
 import 'package:weightloss/ui/nav.dart';
 import 'package:weightloss/ui/theme/app_theme.dart';
 
@@ -74,6 +75,7 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
       if (app.profile != null) hub.syncFromProfile(app.profile!);
       hub.attachCoach(app.deps.coach);
       await app.deps.coach.maintain();
+      app.deps.ration.maintain();
       await _initNotifications();
     });
   }
@@ -90,6 +92,7 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
       // новый день, изменённая запись еды: расписание обновляем
       final deps = context.read<AppState>().deps;
       deps.coach.maintain().then((_) => deps.notifications.reschedule());
+      deps.ration.maintain();
     }
   }
 
@@ -110,6 +113,10 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     final n = app.deps.notifications;
     final chat = context.read<ChatProvider>();
     n.onOpenSlot = (slot) {
+      if (slot == NotifSlot.planReady) {
+        homeTab.value = 2;
+        return;
+      }
       homeTab.value = 0;
       chat.postOpener(n.opener(slot));
     };

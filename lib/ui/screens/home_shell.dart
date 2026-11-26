@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:weightloss/ui/nav.dart';
 import 'package:weightloss/ui/theme/app_theme.dart';
 import 'package:weightloss/ui/screens/chat_screen.dart';
+import 'package:weightloss/ui/screens/ration_screen.dart';
 import 'package:weightloss/ui/screens/workout_screen.dart';
 
 /// Нижняя навигация. Сейчас два раздела: чат с Фитти и тренировки.
@@ -40,7 +41,7 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [ChatScreen(), WorkoutScreen()],
+        children: const [ChatScreen(), WorkoutScreen(), RationScreen()],
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -65,6 +66,13 @@ class _HomeShellState extends State<HomeShell> {
                   label: 'Тренировка',
                   selected: _index == 1,
                   onTap: () => setState(() => _index = homeTab.value = 1),
+                ),
+                const SizedBox(width: 8),
+                _NavItem(
+                  icon: Icons.restaurant_menu_rounded,
+                  label: 'Рацион',
+                  selected: _index == 2,
+                  onTap: () => setState(() => _index = homeTab.value = 2),
                 ),
               ],
             ),

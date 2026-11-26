@@ -52,6 +52,7 @@ class ChatService {
     required this.contextConfig,
     this.calc,
     this.onScheduleDirty,
+    this.coachBlock,
     MediaPreparer? media,
     DemoResponder? demo,
     DateTime Function()? clock,
@@ -67,6 +68,9 @@ class ChatService {
   /// Вызывается, когда после ответа могло измениться расписание
   /// (записана еда, обновилась память о режиме дня, поставлено напоминание).
   final Future<void> Function()? onScheduleDirty;
+
+  /// Блок [ТРЕНЕР]: решение кода, которое модель только объясняет.
+  final Future<String> Function()? coachBlock;
   final MediaPreparer media;
   final ConversationRepository conversation;
   final AiConfig aiConfig;
@@ -110,6 +114,13 @@ class ChatService {
           system
             ..writeln()
             ..writeln(await calc!.codeBlock());
+        } catch (_) {}
+      }
+      if (coachBlock != null) {
+        try {
+          system
+            ..writeln()
+            ..writeln(await coachBlock!());
         } catch (_) {}
       }
       if (batch.isNotEmpty) {

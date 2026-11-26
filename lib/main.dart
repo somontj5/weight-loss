@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:weightloss/data/exercise_catalog.dart';
 import 'package:provider/provider.dart';
 import 'package:weightloss/app_deps.dart';
 import 'package:weightloss/services/ai/fitty_persona.dart';
@@ -68,8 +69,11 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final app = context.read<AppState>();
       final hub = context.read<WorkoutHub>();
+      await _loadCatalog();
       await app.load();
       if (app.profile != null) hub.syncFromProfile(app.profile!);
+      hub.attachCoach(app.deps.coach);
+      await app.deps.coach.maintain();
       await _initNotifications();
     });
   }
@@ -84,7 +88,20 @@ class _RootState extends State<_Root> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
       // новый день, изменённая запись еды: расписание обновляем
-      context.read<AppState>().deps.notifications.reschedule();
+      final deps = context.read<AppState>().deps;
+      deps.coach.maintain().then((_) => deps.notifications.reschedule());
+    }
+  }
+
+  /// Каталог упражнений: встроенные + assets/data/exercises.json.
+  /// Битый или отсутствующий файл не мешает запуску.
+  Future<void> _loadCatalog() async {
+    try {
+      ExerciseCatalog.load(
+        await rootBundle.loadString('assets/data/exercises.json'),
+      );
+    } catch (_) {
+      ExerciseCatalog.load(null);
     }
   }
 

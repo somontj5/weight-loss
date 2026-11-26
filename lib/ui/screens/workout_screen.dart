@@ -402,7 +402,7 @@ class _Empty extends StatelessWidget {
                   color: AppColors.text)),
           SizedBox(height: 4),
           Text(
-            'Тренировки появятся здесь, когда Фитти научится составлять их в разговоре (скоро).',
+            'Фитти сам подготовит тренировку, когда придёт время, и сообщит в чате и уведомлением.',
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 14,
@@ -462,6 +462,16 @@ class _PlanCard extends StatelessWidget {
               ),
             ],
           ),
+          if (hub.plannedAt != null) ...[
+            const SizedBox(height: 6),
+            Text(
+                '${_dayWord(hub.plannedAt!)} в ${hub.plannedAt!.hour.toString().padLeft(2, '0')}:${hub.plannedAt!.minute.toString().padLeft(2, '0')}'
+                '${hub.plannedDifficulty != null ? ', сложность ${hub.plannedDifficulty} из 3' : ''}',
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textSoft)),
+          ],
           if (workout.intro.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
@@ -682,4 +692,12 @@ class _HistoryRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _dayWord(DateTime t) {
+  final now = DateTime.now();
+  final d = DateTime(t.year, t.month, t.day)
+      .difference(DateTime(now.year, now.month, now.day))
+      .inDays;
+  return d <= 0 ? 'Сегодня' : (d == 1 ? 'Завтра' : '${t.day}.${t.month}');
 }

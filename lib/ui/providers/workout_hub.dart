@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:weightloss/config/api_config.dart';
+import 'package:weightloss/domain/coach/coach_service.dart';
+import 'package:weightloss/domain/coach/workout_repository.dart';
 import 'package:weightloss/domain/entities/profile.dart';
 import 'package:weightloss/models/user_profile.dart';
 import 'package:weightloss/models/workout.dart';
@@ -15,7 +17,7 @@ import 'package:weightloss/services/fitness_coach_service.dart';
 /// текущий план от ИИ и история тренировок.
 class WorkoutHub extends ChangeNotifier {
   WorkoutHub({FitnessCoachService? llm})
-      : _llm = llm ?? (ApiConfig.hasKey ? LlmFitnessCoach() : null);
+    : _llm = llm ?? (ApiConfig.hasKey ? LlmFitnessCoach() : null);
 
   final FitnessCoachService? _llm;
   final LocalFitnessCoach _local = LocalFitnessCoach();
@@ -33,6 +35,32 @@ class WorkoutHub extends ChangeNotifier {
 
   Workout? _workout;
   Workout? get workout => _workout;
+
+  CoachService? _coach;
+  PlannedWorkout? _planned;
+
+  /// Время и сложность, назначенные тренером (код).
+  DateTime? get plannedAt => _planned?.scheduledAt;
+  int? get plannedDifficulty => _planned?.difficulty;
+
+  /// Подключает тренера: план теперь берётся из базы, а не из кнопки.
+  void attachCoach(CoachService coach) {
+    if (identical(_coach, coach)) return;
+    _coach?.revision.removeListener(refreshPlan);
+    _coach = coach;
+    coach.revision.addListener(refreshPlan);
+    refreshPlan();
+  }
+
+  Future<void> refreshPlan() async {
+    final c = _coach;
+    if (c == null) return;
+    try {
+      _planned = await c.workouts.nextPlanned(DateTime.now());
+      _workout = _planned?.workout;
+    } catch (_) {}
+    notifyListeners();
+  }
 
   final List<WorkoutSession> _history = [];
   List<WorkoutSession> get history => List.unmodifiable(_history);
@@ -178,7 +206,8 @@ class WorkoutHub extends ChangeNotifier {
         result = await _llm.generateWorkout(req);
       } catch (e) {
         if (kDebugMode) debugPrint('LLM workout failed: $e');
-        _notice = 'ИИ сейчас недоступен, поэтому я составил план сам. '
+        _notice =
+            'ИИ сейчас недоступен, поэтому я составил план сам. '
             'Попробуй позже, и я подстрою его точнее.';
       }
     } else {
@@ -198,22 +227,28 @@ class WorkoutHub extends ChangeNotifier {
     for (var i = 0; i < w.exercises.length; i++) {
       final e = w.exercises[i];
       k += CalorieCalc.kcal(
-          met: e.met,
-          weightKg: _profile.weightKg,
-          age: _profile.age,
-          seconds: e.durationSec.toDouble());
+        met: e.met,
+        weightKg: _profile.weightKg,
+        age: _profile.age,
+        seconds: e.durationSec.toDouble(),
+      );
       if (i < w.exercises.length - 1) {
         k += CalorieCalc.kcal(
-            met: CalorieCalc.restMet,
-            weightKg: _profile.weightKg,
-            age: _profile.age,
-            seconds: e.restSec.toDouble());
+          met: CalorieCalc.restMet,
+          weightKg: _profile.weightKg,
+          age: _profile.age,
+          seconds: e.restSec.toDouble(),
+        );
       }
     }
     return k;
   }
 
   void addSession(WorkoutSession s) {
+    final c = _coach;
+    if (c != null) {
+      c.saveResult(_planned?.id, s);
+    }
     _history.insert(0, s);
     if (_history.length > 20) _history.removeRange(20, _history.length);
     notifyListeners();
@@ -224,12 +259,18 @@ class WorkoutHub extends ChangeNotifier {
     if (_llm != null) {
       try {
         return await _llm.reviewSession(
-            profile: _profile, session: s, caloriesEaten: _caloriesEaten);
+          profile: _profile,
+          session: s,
+          caloriesEaten: _caloriesEaten,
+        );
       } catch (e) {
         if (kDebugMode) debugPrint('LLM review failed: $e');
       }
     }
     return _local.reviewSession(
-        profile: _profile, session: s, caloriesEaten: _caloriesEaten);
+      profile: _profile,
+      session: s,
+      caloriesEaten: _caloriesEaten,
+    );
   }
 }

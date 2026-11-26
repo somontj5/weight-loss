@@ -27,7 +27,7 @@ class NotificationService {
     required this.memory,
     required this.profiles,
     required this.diary,
-    this.plannedWorkouts,
+
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
 
@@ -39,7 +39,7 @@ class NotificationService {
   final DiaryService diary;
 
   /// Времена запланированных тренировок (подключается тренером).
-  final Future<List<DateTime>> Function()? plannedWorkouts;
+  Future<List<DateTime>> Function()? plannedWorkouts;
   final DateTime Function() _clock;
 
   /// Вызывается при нажатии на уведомление (slot).

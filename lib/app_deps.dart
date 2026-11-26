@@ -17,6 +17,10 @@ import 'package:weightloss/data/repositories/notification_schedule_repository_im
 import 'package:weightloss/domain/actions/notification_handlers.dart';
 import 'package:weightloss/domain/notifications/notification_gateway.dart';
 import 'package:weightloss/domain/notifications/notification_service.dart';
+import 'package:weightloss/data/repositories/workout_repository_impl.dart';
+import 'package:weightloss/domain/actions/plan_workout_handler.dart';
+import 'package:weightloss/domain/coach/coach_service.dart';
+import 'package:weightloss/domain/coach/workout_repository.dart';
 import 'package:weightloss/services/local_notification_gateway.dart';
 import 'package:weightloss/domain/diary/diary_calc.dart';
 import 'package:weightloss/domain/diary/diary_service.dart';
@@ -64,13 +68,25 @@ class AppDeps {
       profiles: profiles,
       diary: diary,
     );
+    workoutRepo = WorkoutRepositoryImpl(db);
+    coach = CoachService(
+      profiles: profiles,
+      diary: diary,
+      memory: memoryRepo,
+      workouts: workoutRepo,
+      onChanged: notifications.reschedule,
+    );
+    notifications.plannedWorkouts =
+        () => workoutRepo.plannedTimes(DateTime.now());
     dispatcher = ActionDispatcher(
+      afterFood: coach.afterFood,
       memory: memoryService,
       diary: diary,
       calc: diaryCalc,
       handlers: [
         SetActivityHandler(profileService),
         ScheduleNotificationHandler(notifications, schedule),
+        PlanWorkoutHandler(coach),
       ],
     );
 
@@ -79,7 +95,7 @@ class AppDeps {
       memory: memoryRepo,
       conversation: conversation,
       diary: diarySource,
-      workouts: const EmptyWorkoutHistorySource(),
+      workouts: DbWorkoutHistorySource(workoutRepo),
       config: contextConfig,
     );
     router = ModelRouter(GeminiClient(aiConfig), quota, aiConfig);
@@ -89,6 +105,7 @@ class AppDeps {
       dispatcher: dispatcher,
       calc: diaryCalc,
       onScheduleDirty: notifications.reschedule,
+      coachBlock: coach.block,
       conversation: conversation,
       aiConfig: aiConfig,
       contextConfig: contextConfig,
@@ -122,6 +139,8 @@ class AppDeps {
   late final DbDiarySource diarySource;
   late final DiaryCalc diaryCalc;
   late final NotificationService notifications;
+  late final WorkoutRepository workoutRepo;
+  late final CoachService coach;
   late final ActionDispatcher dispatcher;
   late final ContextAssembler assembler;
   late final ModelRouter router;

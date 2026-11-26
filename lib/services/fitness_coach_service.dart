@@ -129,7 +129,7 @@ class LlmFitnessCoach implements FitnessCoachService {
 
   String _workoutSystemPrompt() {
     final cat = StringBuffer();
-    for (final t in kExerciseCatalog) {
+    for (final t in ExerciseCatalog.all) {
       cat.writeln('${t.id} | ${t.name} | ${t.muscle} | MET ${t.met} | '
           '${t.highImpact ? "прыжки/ударная" : "щадящее"} | ${t.stage}');
     }
@@ -227,8 +227,8 @@ class LocalFitnessCoach implements FitnessCoachService {
     work = work.clamp(20, 60);
     rest = rest.clamp(8, 40);
 
-    final warm = kExerciseCatalog.where((t) => t.stage == 'warmup').toList();
-    final cool = kExerciseCatalog.where((t) => t.stage == 'cooldown').toList();
+    final warm = ExerciseCatalog.all.where((t) => t.stage == 'warmup').toList();
+    final cool = ExerciseCatalog.all.where((t) => t.stage == 'cooldown').toList();
     final main = kExerciseCatalog
         .where((t) => t.stage == 'main' && !(gentle && t.highImpact))
         .toList();

@@ -49,3 +49,9 @@ app.*.map.json
 .pub-resolve-policy
 *.backup
 *.original
+
+# Kotlin / подпись
+/android/.kotlin/
+android/key.properties
+*.jks
+*.keystore

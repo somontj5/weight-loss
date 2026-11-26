@@ -1,3 +1,5 @@
+import 'dart:io' show File;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -69,15 +71,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _export() async {
     setState(() => _busy = true);
+    File? exported;
     try {
       final app = context.read<AppState>();
-      final f = await app.deps.exporter.exportToFile();
+      exported = await app.deps.exporter.exportToFile();
       await Share.shareXFiles([
-        XFile(f.path, mimeType: 'application/json'),
+        XFile(exported.path, mimeType: 'application/json'),
       ], subject: 'FITTY: мои данные');
     } catch (_) {
       _toast('Не удалось выгрузить данные');
     } finally {
+      // Выгрузка содержит все данные о здоровье: не оставляем копию на диске.
+      try {
+        await exported?.delete();
+      } catch (_) {}
       if (mounted) setState(() => _busy = false);
     }
   }

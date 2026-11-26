@@ -51,17 +51,22 @@ class ChatService {
     required this.aiConfig,
     required this.contextConfig,
     this.calc,
+    this.onScheduleDirty,
     MediaPreparer? media,
     DemoResponder? demo,
     DateTime Function()? clock,
-  })  : demo = demo ?? DemoResponder(),
-        media = media ?? MediaPreparer(),
-        _clock = clock ?? DateTime.now;
+  }) : demo = demo ?? DemoResponder(),
+       media = media ?? MediaPreparer(),
+       _clock = clock ?? DateTime.now;
 
   final ContextAssembler assembler;
   final ModelRouter router;
   final ActionDispatcher dispatcher;
   final DiaryCalc? calc;
+
+  /// Вызывается, когда после ответа могло измениться расписание
+  /// (записана еда, обновилась память о режиме дня, поставлено напоминание).
+  final Future<void> Function()? onScheduleDirty;
   final MediaPreparer media;
   final ConversationRepository conversation;
   final AiConfig aiConfig;
@@ -80,14 +85,21 @@ class ChatService {
   }) async {
     if (demoMode) {
       final t = await demo.reply(
-          text: text, imagePaths: images, audioDuration: audio);
+        text: text,
+        imagePaths: images,
+        audioDuration: audio,
+      );
       return ChatReply(
-          text: '$t\n\n(Демо-режим: ключ Gemini не подключён.)', notice: true);
+        text: '$t\n\n(Демо-режим: ключ Gemini не подключён.)',
+        notice: true,
+      );
     }
 
     try {
       final ctx = await assembler.assemble();
-      final batch = ctx.needsSummary ? await _summaryBatch() : <StoredMessage>[];
+      final batch = ctx.needsSummary
+          ? await _summaryBatch()
+          : <StoredMessage>[];
 
       final system = StringBuffer(FittyPersona.systemPrompt)
         ..writeln()
@@ -103,39 +115,45 @@ class ChatService {
       if (batch.isNotEmpty) {
         system
           ..writeln()
-          ..writeln('[СЖАТЬ В РЕЗЮМЕ] Старые сообщения. Верни их краткое '
-              'резюме в поле "summary":')
+          ..writeln(
+            '[СЖАТЬ В РЕЗЮМЕ] Старые сообщения. Верни их краткое '
+            'резюме в поле "summary":',
+          )
           ..writeln(_formatBatch(batch));
       }
 
       // Вложения: фото (≤4, сжатые) и голосовое — к последнему сообщению.
-      final attachments =
-          await media.prepare(images: images, audioPath: audioPath);
+      final attachments = await media.prepare(
+        images: images,
+        audioPath: audioPath,
+      );
       final photos = attachments.where((a) => !a.isAudio).length;
       final hasVoice = attachments.any((a) => a.isAudio);
       if (attachments.isNotEmpty) {
         system
           ..writeln()
-          ..writeln('[ВЛОЖЕНИЯ] К последнему сообщению человека приложено: '
-              '${photos > 0 ? 'фото — $photos' : ''}'
-              '${photos > 0 && hasVoice ? ', ' : ''}'
-              '${hasVoice ? 'голосовое (слушай его сам)' : ''}. '
-              'Смотри/слушай их. ${hasVoice ? 'В поле "heard" верни дословную расшифровку голосового. ' : ''}'
-              '${images.length > photos ? 'Часть фото не дошла (максимум ${media.maxImages}). ' : ''}');
+          ..writeln(
+            '[ВЛОЖЕНИЯ] К последнему сообщению человека приложено: '
+            '${photos > 0 ? 'фото — $photos' : ''}'
+            '${photos > 0 && hasVoice ? ', ' : ''}'
+            '${hasVoice ? 'голосовое (слушай его сам)' : ''}. '
+            'Смотри/слушай их. ${hasVoice ? 'В поле "heard" верни дословную расшифровку голосового. ' : ''}'
+            '${images.length > photos ? 'Часть фото не дошла (максимум ${media.maxImages}). ' : ''}',
+          );
       }
 
       var turns = ctx.turns;
       if (turns.isEmpty) {
         turns = [
-          ChatTurn('user', text.isEmpty ? '(сообщение без текста)' : text)
+          ChatTurn('user', text.isEmpty ? '(сообщение без текста)' : text),
         ];
       }
 
-      final routed =
-          await router.generate(
-              system: system.toString(),
-              turns: turns,
-              attachments: attachments);
+      final routed = await router.generate(
+        system: system.toString(),
+        turns: turns,
+        attachments: attachments,
+      );
       final parsed = ReplyParser.parse(routed.text);
 
       // Единая точка обработки действий (память, дневник, …).
@@ -152,6 +170,14 @@ class ChatService {
         );
       } catch (_) {
         // действия не должны ронять ответ
+      }
+
+      if (dispatched.food != null ||
+          dispatched.memoryChanged ||
+          dispatched.footers.isNotEmpty) {
+        try {
+          await onScheduleDirty?.call();
+        } catch (_) {}
       }
 
       String? heard;
@@ -173,7 +199,10 @@ class ChatService {
             body = body.substring(0, contextConfig.summaryMaxChars);
           }
           await conversation.addSummary(
-              body: body, covered: batch, now: _clock());
+            body: body,
+            covered: batch,
+            now: _clock(),
+          );
         } catch (_) {}
       }
 
@@ -192,13 +221,16 @@ class ChatService {
       return ChatReply(text: e.userMessage, notice: true);
     } catch (_) {
       return const ChatReply(
-          text: 'Ой, что-то пошло не так. Попробуй ещё раз.', notice: true);
+        text: 'Ой, что-то пошло не так. Попробуй ещё раз.',
+        notice: true,
+      );
     }
   }
 
   Future<List<StoredMessage>> _summaryBatch() async {
     final pending = await conversation.pendingForSummary(
-        keepLast: contextConfig.keepRecentRaw);
+      keepLast: contextConfig.keepRecentRaw,
+    );
     final out = <StoredMessage>[];
     var tokens = 0;
     for (final m in pending) {
@@ -222,6 +254,5 @@ class ChatService {
     return '${m.isUser ? 'Человек' : 'Фитти'}: $t';
   }
 
-  String _formatBatch(List<StoredMessage> batch) =>
-      batch.map(_line).join('\n');
+  String _formatBatch(List<StoredMessage> batch) => batch.map(_line).join('\n');
 }

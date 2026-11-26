@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:weightloss/ui/nav.dart';
 import 'package:weightloss/ui/theme/app_theme.dart';
 import 'package:weightloss/ui/screens/chat_screen.dart';
 import 'package:weightloss/ui/screens/workout_screen.dart';
@@ -14,7 +15,25 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  int _index = 0;
+  int _index = homeTab.value;
+
+  @override
+  void initState() {
+    super.initState();
+    homeTab.addListener(_sync);
+  }
+
+  void _sync() {
+    if (mounted && _index != homeTab.value) {
+      setState(() => _index = homeTab.value);
+    }
+  }
+
+  @override
+  void dispose() {
+    homeTab.removeListener(_sync);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,14 +57,14 @@ class _HomeShellState extends State<HomeShell> {
                   icon: Icons.chat_bubble_rounded,
                   label: 'Чат',
                   selected: _index == 0,
-                  onTap: () => setState(() => _index = 0),
+                  onTap: () => setState(() => _index = homeTab.value = 0),
                 ),
                 const SizedBox(width: 8),
                 _NavItem(
                   icon: Icons.fitness_center_rounded,
                   label: 'Тренировка',
                   selected: _index == 1,
-                  onTap: () => setState(() => _index = 1),
+                  onTap: () => setState(() => _index = homeTab.value = 1),
                 ),
               ],
             ),
@@ -81,21 +100,27 @@ class _NavItem extends StatelessWidget {
             color: selected ? AppColors.primarySoft : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-                color: selected ? const Color(0xFFD9CBFF) : Colors.transparent,
-                width: 2),
+              color: selected ? const Color(0xFFD9CBFF) : Colors.transparent,
+              width: 2,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  size: 26,
-                  color: selected ? AppColors.primary : AppColors.textSoft),
+              Icon(
+                icon,
+                size: 26,
+                color: selected ? AppColors.primary : AppColors.textSoft,
+              ),
               const SizedBox(height: 2),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      color: selected ? AppColors.primary : AppColors.textSoft)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: selected ? AppColors.primary : AppColors.textSoft,
+                ),
+              ),
             ],
           ),
         ),

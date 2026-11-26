@@ -9,16 +9,19 @@ import 'package:weightloss/ui/providers/workout_hub.dart';
 import 'package:weightloss/ui/screens/home_shell.dart';
 import 'package:weightloss/ui/screens/onboarding_screen.dart';
 import 'package:weightloss/services/audio_playback.dart';
+import 'package:weightloss/ui/nav.dart';
 import 'package:weightloss/ui/theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.white,
-    systemNavigationBarIconBrightness: Brightness.dark,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
   runApp(FittyApp(deps: AppDeps.create()));
 }
 
@@ -34,7 +37,8 @@ class FittyApp extends StatelessWidget {
         Provider<AppDeps>.value(value: deps),
         ChangeNotifierProvider(create: (_) => AppState(deps)),
         ChangeNotifierProvider(
-            create: (_) => ChatProvider(deps.chat, deps.conversation)..load()),
+          create: (_) => ChatProvider(deps.chat, deps.conversation)..load(),
+        ),
         ChangeNotifierProvider(create: (_) => AudioPlayback()),
         ChangeNotifierProvider(create: (_) => WorkoutHub()..load()),
       ],
@@ -56,16 +60,46 @@ class _Root extends StatefulWidget {
   State<_Root> createState() => _RootState();
 }
 
-class _RootState extends State<_Root> {
+class _RootState extends State<_Root> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final app = context.read<AppState>();
       final hub = context.read<WorkoutHub>();
       await app.load();
       if (app.profile != null) hub.syncFromProfile(app.profile!);
+      await _initNotifications();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      // новый день, изменённая запись еды: расписание обновляем
+      context.read<AppState>().deps.notifications.reschedule();
+    }
+  }
+
+  Future<void> _initNotifications() async {
+    final app = context.read<AppState>();
+    final n = app.deps.notifications;
+    final chat = context.read<ChatProvider>();
+    n.onOpenSlot = (slot) {
+      homeTab.value = 0;
+      chat.postOpener(n.opener(slot));
+    };
+    await n.init();
+    if (app.onboarded && (await n.prefs()).enabled) {
+      if (await n.ensurePermission()) await n.reschedule();
+    }
   }
 
   @override
@@ -80,16 +114,20 @@ class _RootState extends State<_Root> {
         onDone: (profile, norm, weeks) async {
           final chat = context.read<ChatProvider>();
           context.read<WorkoutHub>().syncFromProfile(profile);
-          await chat.postFitty(FittyPersona.welcome(
-            name: profile.name,
-            kcal: norm.kcal,
-            proteinG: norm.proteinG,
-            fatG: norm.fatG,
-            carbsG: norm.carbsG,
-            weeks: weeks,
-            paceAdjusted: norm.paceAdjusted,
-            effectiveWeeks: norm.effectiveWeeks,
-          ));
+          final notif = context.read<AppState>().deps.notifications;
+          await chat.postFitty(
+            FittyPersona.welcome(
+              name: profile.name,
+              kcal: norm.kcal,
+              proteinG: norm.proteinG,
+              fatG: norm.fatG,
+              carbsG: norm.carbsG,
+              weeks: weeks,
+              paceAdjusted: norm.paceAdjusted,
+              effectiveWeeks: norm.effectiveWeeks,
+            ),
+          );
+          if (await notif.ensurePermission()) await notif.reschedule();
         },
       );
     }

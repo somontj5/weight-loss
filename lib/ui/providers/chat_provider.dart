@@ -53,22 +53,35 @@ class ChatProvider extends ChangeNotifier {
   }
 
   ChatMessage _toUi(StoredMessage m) => ChatMessage(
-        id: 'db${m.id}',
-        sender: m.isUser ? Sender.user : Sender.fitty,
-        text: m.body,
-        images: m.images,
-        audioPath: m.audioPath,
-        audioDuration: Duration(milliseconds: m.audioMs),
-        waveform: m.waveform,
-        time: m.createdAt,
-      );
+    id: 'db${m.id}',
+    sender: m.isUser ? Sender.user : Sender.fitty,
+    text: m.body,
+    images: m.images,
+    audioPath: m.audioPath,
+    audioDuration: Duration(milliseconds: m.audioMs),
+    waveform: m.waveform,
+    time: m.createdAt,
+  );
 
   /// Приветствие Фитти после регистрации.
   Future<void> postFitty(String text, {bool notice = false}) async {
     final id = await _repo.addMessage(
-        role: 'fitty', kind: notice ? 'notice' : 'chat', body: text);
+      role: 'fitty',
+      kind: notice ? 'notice' : 'chat',
+      body: text,
+    );
     _messages.add(ChatMessage(id: 'db$id', sender: Sender.fitty, text: text));
     notifyListeners();
+  }
+
+  /// Фитти сам задаёт первый вопрос после нажатия на уведомление.
+  /// Запрос к модели не тратится. Повторное нажатие не плодит дубли.
+  Future<void> postOpener(String text) async {
+    if (_messages.isNotEmpty) {
+      final last = _messages.last;
+      if (last.sender == Sender.fitty && last.text == text) return;
+    }
+    await postFitty(text);
   }
 
   /// Выбор нескольких фото из галереи.
@@ -118,8 +131,9 @@ class ChatProvider extends ChangeNotifier {
     final images = List<String>.of(_draftImages);
     _draftImages.clear();
     final id = await _repo.addMessage(role: 'user', body: t, images: images);
-    _messages.add(ChatMessage(
-        id: 'db$id', sender: Sender.user, text: t, images: images));
+    _messages.add(
+      ChatMessage(id: 'db$id', sender: Sender.user, text: t, images: images),
+    );
     notifyListeners();
     _enqueue(id, text: t, images: images);
   }
@@ -135,17 +149,18 @@ class ChatProvider extends ChangeNotifier {
       audioMs: audio.duration.inMilliseconds,
       waveform: audio.waveform,
     );
-    _messages.add(ChatMessage(
-      id: 'db$id',
-      sender: Sender.user,
-      images: images,
-      audioPath: audio.path,
-      audioDuration: audio.duration,
-      waveform: audio.waveform,
-    ));
+    _messages.add(
+      ChatMessage(
+        id: 'db$id',
+        sender: Sender.user,
+        images: images,
+        audioPath: audio.path,
+        audioDuration: audio.duration,
+        waveform: audio.waveform,
+      ),
+    );
     notifyListeners();
-    _enqueue(id,
-        images: images, audio: audio.duration, audioPath: audio.path);
+    _enqueue(id, images: images, audio: audio.duration, audioPath: audio.path);
   }
 
   /// Расшифровка голосового появляется под волной в том же сообщении.
@@ -165,33 +180,42 @@ class ChatProvider extends ChangeNotifier {
     );
   }
 
-  void _enqueue(int userMessageId,
-      {String text = '',
-      List<String> images = const [],
-      Duration? audio,
-      String? audioPath}) {
+  void _enqueue(
+    int userMessageId, {
+    String text = '',
+    List<String> images = const [],
+    Duration? audio,
+    String? audioPath,
+  }) {
     _typing = true;
     notifyListeners();
     _queue = _queue.then((_) async {
       try {
         final r = await _service.respond(
-            userMessageId: userMessageId,
-            text: text,
-            images: images,
-            audio: audio,
-            audioPath: audioPath);
+          userMessageId: userMessageId,
+          text: text,
+          images: images,
+          audio: audio,
+          audioPath: audioPath,
+        );
         if (r.heard != null) _applyHeard(userMessageId, r.heard!);
         final id = await _repo.addMessage(
-            role: 'fitty', kind: r.notice ? 'notice' : 'chat', body: r.text);
-        _messages
-            .add(ChatMessage(id: 'db$id', sender: Sender.fitty, text: r.text));
+          role: 'fitty',
+          kind: r.notice ? 'notice' : 'chat',
+          body: r.text,
+        );
+        _messages.add(
+          ChatMessage(id: 'db$id', sender: Sender.fitty, text: r.text),
+        );
       } catch (e) {
         if (kDebugMode) debugPrint('chat error: $e');
-        _messages.add(ChatMessage(
-          id: 'err${DateTime.now().microsecondsSinceEpoch}',
-          sender: Sender.fitty,
-          text: 'Ой, что-то пошло не так. Попробуй ещё раз.',
-        ));
+        _messages.add(
+          ChatMessage(
+            id: 'err${DateTime.now().microsecondsSinceEpoch}',
+            sender: Sender.fitty,
+            text: 'Ой, что-то пошло не так. Попробуй ещё раз.',
+          ),
+        );
       } finally {
         _typing = false;
         notifyListeners();

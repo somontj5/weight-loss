@@ -13,6 +13,11 @@ import 'package:weightloss/data/repositories/settings_repository_impl.dart';
 import 'package:weightloss/domain/actions/action_dispatcher.dart';
 import 'package:weightloss/domain/actions/set_activity_handler.dart';
 import 'package:weightloss/domain/context/part2_stubs.dart';
+import 'package:weightloss/data/repositories/notification_schedule_repository_impl.dart';
+import 'package:weightloss/domain/actions/notification_handlers.dart';
+import 'package:weightloss/domain/notifications/notification_gateway.dart';
+import 'package:weightloss/domain/notifications/notification_service.dart';
+import 'package:weightloss/services/local_notification_gateway.dart';
 import 'package:weightloss/domain/diary/diary_calc.dart';
 import 'package:weightloss/domain/diary/diary_service.dart';
 import 'package:weightloss/domain/settings/settings_repository.dart';
@@ -26,7 +31,12 @@ import 'package:weightloss/services/chat_service.dart';
 
 /// Сборка всех зависимостей в одном месте (простая ручная DI).
 class AppDeps {
-  AppDeps._(this.db, this.aiConfig, this.contextConfig) {
+  AppDeps._(
+    this.db,
+    this.aiConfig,
+    this.contextConfig, [
+    NotificationGateway? gateway,
+  ]) {
     profiles = ProfileRepositoryImpl(db);
     memoryRepo = MemoryRepositoryImpl(db);
     conversation = ConversationRepositoryImpl(db);
@@ -45,11 +55,23 @@ class AppDeps {
       profiles: profiles,
       settings: settings,
     );
+    final schedule = NotificationScheduleRepositoryImpl(db);
+    notifications = NotificationService(
+      gateway: gateway ?? LocalNotificationGateway(),
+      settings: settings,
+      schedule: schedule,
+      memory: memoryRepo,
+      profiles: profiles,
+      diary: diary,
+    );
     dispatcher = ActionDispatcher(
       memory: memoryService,
       diary: diary,
       calc: diaryCalc,
-      handlers: [SetActivityHandler(profileService)],
+      handlers: [
+        SetActivityHandler(profileService),
+        ScheduleNotificationHandler(notifications, schedule),
+      ],
     );
 
     assembler = ContextAssembler(
@@ -66,6 +88,7 @@ class AppDeps {
       router: router,
       dispatcher: dispatcher,
       calc: diaryCalc,
+      onScheduleDirty: notifications.reschedule,
       conversation: conversation,
       aiConfig: aiConfig,
       contextConfig: contextConfig,
@@ -75,8 +98,13 @@ class AppDeps {
   factory AppDeps.create({
     AiConfig aiConfig = AiConfig.defaults,
     ContextConfig contextConfig = ContextConfig.defaults,
-  }) =>
-      AppDeps._(AppDatabase(openDeviceDatabase()), aiConfig, contextConfig);
+    NotificationGateway? gateway,
+  }) => AppDeps._(
+    AppDatabase(openDeviceDatabase()),
+    aiConfig,
+    contextConfig,
+    gateway,
+  );
 
   final AppDatabase db;
   final AiConfig aiConfig;
@@ -93,6 +121,7 @@ class AppDeps {
   late final DiaryService diary;
   late final DbDiarySource diarySource;
   late final DiaryCalc diaryCalc;
+  late final NotificationService notifications;
   late final ActionDispatcher dispatcher;
   late final ContextAssembler assembler;
   late final ModelRouter router;

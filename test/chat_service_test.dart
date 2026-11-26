@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:weightloss/config/ai_config.dart';
 import 'package:weightloss/config/context_config.dart';
 import 'package:weightloss/data/repositories/usage_repository.dart';
+import 'package:weightloss/domain/actions/action_dispatcher.dart';
 import 'package:weightloss/domain/context/context_assembler.dart';
 import 'package:weightloss/domain/memory/memory_service.dart';
 import 'package:weightloss/services/ai/ai_exceptions.dart';
@@ -57,7 +58,7 @@ void main() {
         clock: () => now,
       ),
       router: ModelRouter(tr, quota, config),
-      memory: mem,
+      dispatcher: ActionDispatcher(memory: mem),
       conversation: env.conv,
       aiConfig: config,
       contextConfig: ContextConfig.defaults,

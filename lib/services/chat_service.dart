@@ -2,7 +2,9 @@ import 'package:weightloss/config/ai_config.dart';
 import 'package:weightloss/config/context_config.dart';
 import 'package:weightloss/domain/context/context_assembler.dart';
 import 'package:weightloss/domain/entities/stored_message.dart';
-import 'package:weightloss/domain/memory/memory_service.dart';
+import 'package:weightloss/domain/actions/action_dispatcher.dart';
+import 'package:weightloss/domain/diary/diary_calc.dart';
+import 'package:weightloss/domain/diary/food_action.dart';
 import 'package:weightloss/domain/repositories/repositories.dart';
 import 'package:weightloss/services/ai/ai_exceptions.dart';
 import 'package:weightloss/services/ai/demo_responder.dart';
@@ -17,6 +19,7 @@ class ChatReply {
     this.model,
     this.switchedModel = false,
     this.memoryChanged = false,
+    this.food,
   });
 
   final String text;
@@ -26,6 +29,9 @@ class ChatReply {
   final String? model;
   final bool switchedModel;
   final bool memoryChanged;
+
+  /// Что сделано с дневником (если модель присылала log_food).
+  final FoodLogOutcome? food;
 }
 
 /// Один «ход» разговора: контекст → Gemini → разбор ответа → память и резюме.
@@ -35,10 +41,11 @@ class ChatService {
   ChatService({
     required this.assembler,
     required this.router,
-    required this.memory,
+    required this.dispatcher,
     required this.conversation,
     required this.aiConfig,
     required this.contextConfig,
+    this.calc,
     DemoResponder? demo,
     DateTime Function()? clock,
   })  : demo = demo ?? DemoResponder(),
@@ -46,7 +53,8 @@ class ChatService {
 
   final ContextAssembler assembler;
   final ModelRouter router;
-  final MemoryService memory;
+  final ActionDispatcher dispatcher;
+  final DiaryCalc? calc;
   final ConversationRepository conversation;
   final AiConfig aiConfig;
   final ContextConfig contextConfig;
@@ -76,6 +84,13 @@ class ChatService {
         ..writeln()
         ..writeln('=== КОНТЕКСТ ===')
         ..writeln(ctx.contextText);
+      if (calc != null) {
+        try {
+          system
+            ..writeln()
+            ..writeln(await calc!.codeBlock());
+        } catch (_) {}
+      }
       if (batch.isNotEmpty) {
         system
           ..writeln()
@@ -95,16 +110,20 @@ class ChatService {
           await router.generate(system: system.toString(), turns: turns);
       final parsed = ReplyParser.parse(routed.text);
 
-      var memoryChanged = false;
-      final updates = parsed.memoryUpdates;
-      if (updates.isNotEmpty) {
-        try {
-          final r =
-              await memory.apply(updates, sourceMessageId: userMessageId);
-          memoryChanged = r.added + r.replaced + r.forgotten > 0;
-        } catch (_) {
-          // память не должна ронять ответ
-        }
+      // Единая точка обработки действий (память, дневник, …).
+      var dispatched = DispatchResult.empty;
+      try {
+        dispatched = await dispatcher.handle(
+          parsed,
+          DispatchContext(
+            userMessageId: userMessageId,
+            now: _clock(),
+            images: images,
+            hasAudio: audio != null,
+          ),
+        );
+      } catch (_) {
+        // действия не должны ронять ответ
       }
 
       if (batch.isNotEmpty && parsed.summary != null) {
@@ -118,11 +137,15 @@ class ChatService {
         } catch (_) {}
       }
 
+      final answer = dispatched.footers.isEmpty
+          ? parsed.text
+          : '${parsed.text}\n\n${dispatched.footers.join('\n')}';
       return ChatReply(
-        text: parsed.text,
+        text: answer,
         model: routed.model,
         switchedModel: routed.switched,
-        memoryChanged: memoryChanged,
+        memoryChanged: dispatched.memoryChanged,
+        food: dispatched.food,
       );
     } on AiException catch (e) {
       return ChatReply(text: e.userMessage, notice: true);

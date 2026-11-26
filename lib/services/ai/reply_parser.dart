@@ -16,17 +16,25 @@ class ParsedReply {
     this.actions = const [],
     this.summary,
     this.wellFormed = true,
+    this.clarify = false,
+    this.heard,
   });
 
   final String text;
   final List<AiAction> actions;
   final String? summary;
 
+  /// true — Фитти задал уточняющий вопрос и еду пока не записывает.
+  final bool clarify;
+
+  /// Расшифровка голосового сообщения (если модель слышала аудио).
+  final String? heard;
+
   /// false — модель вернула не JSON, весь текст принят как ответ.
   final bool wellFormed;
 
-  /// Только save_memory обрабатывается; остальные принимаются и игнорируются
-  /// (заготовка под часть 2).
+  /// Факты памяти из всех save_memory. Остальные действия обрабатывает
+  /// ActionDispatcher.
   List<MemoryUpdate> get memoryUpdates {
     final out = <MemoryUpdate>[];
     for (final a in actions) {
@@ -90,10 +98,13 @@ class ReplyParser {
     var text = (j['reply'] ?? j['text'] ?? '').toString().trim();
     if (text.isEmpty) text = actions.isEmpty ? '…' : 'Запомнил!';
     final summary = j['summary']?.toString().trim();
+    final heard = j['heard']?.toString().trim();
     return ParsedReply(
       text: text,
       actions: actions,
       summary: (summary == null || summary.isEmpty) ? null : summary,
+      clarify: j['clarify'] == true,
+      heard: (heard == null || heard.isEmpty) ? null : heard,
     );
   }
 

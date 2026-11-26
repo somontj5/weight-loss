@@ -8,7 +8,13 @@ import 'package:weightloss/data/repositories/memory_repository_impl.dart';
 import 'package:weightloss/data/repositories/profile_repository_impl.dart';
 import 'package:weightloss/data/repositories/usage_repository.dart';
 import 'package:weightloss/domain/context/context_assembler.dart';
+import 'package:weightloss/data/repositories/diary_repository_impl.dart';
+import 'package:weightloss/data/repositories/settings_repository_impl.dart';
+import 'package:weightloss/domain/actions/action_dispatcher.dart';
 import 'package:weightloss/domain/context/part2_stubs.dart';
+import 'package:weightloss/domain/diary/diary_calc.dart';
+import 'package:weightloss/domain/diary/diary_service.dart';
+import 'package:weightloss/domain/settings/settings_repository.dart';
 import 'package:weightloss/domain/memory/memory_service.dart';
 import 'package:weightloss/domain/profile_service.dart';
 import 'package:weightloss/domain/repositories/repositories.dart';
@@ -29,12 +35,26 @@ class AppDeps {
     memoryService = MemoryService(memoryRepo);
     exporter = DataExportService(db);
 
-    // Слоты части 2: сейчас пустые источники.
+    settings = SettingsRepositoryImpl(db);
+    diary = DiaryService(DiaryRepositoryImpl(db));
+    diarySource = DbDiarySource(diary);
+    diaryCalc = DiaryCalc(
+      diary: diary,
+      source: diarySource,
+      profiles: profiles,
+      settings: settings,
+    );
+    dispatcher = ActionDispatcher(
+      memory: memoryService,
+      diary: diary,
+      calc: diaryCalc,
+    );
+
     assembler = ContextAssembler(
       profiles: profiles,
       memory: memoryRepo,
       conversation: conversation,
-      diary: const EmptyDiarySource(),
+      diary: diarySource,
       workouts: const EmptyWorkoutHistorySource(),
       config: contextConfig,
     );
@@ -42,7 +62,8 @@ class AppDeps {
     chat = ChatService(
       assembler: assembler,
       router: router,
-      memory: memoryService,
+      dispatcher: dispatcher,
+      calc: diaryCalc,
       conversation: conversation,
       aiConfig: aiConfig,
       contextConfig: contextConfig,
@@ -66,6 +87,11 @@ class AppDeps {
   late final ProfileService profileService;
   late final MemoryService memoryService;
   late final DataExportService exporter;
+  late final SettingsRepository settings;
+  late final DiaryService diary;
+  late final DbDiarySource diarySource;
+  late final DiaryCalc diaryCalc;
+  late final ActionDispatcher dispatcher;
   late final ContextAssembler assembler;
   late final ModelRouter router;
   late final ChatService chat;

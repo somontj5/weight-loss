@@ -60,7 +60,7 @@ class GeminiClient implements ModelTransport {
       throw const AiOffline();
     }
 
-    return parseHttp(res.statusCode, utf8.decode(res.bodyBytes));
+    return parseHttp(res.statusCode, utf8.decode(res.bodyBytes), model: model);
   }
 
   /// Тело запроса. Вложения прикрепляются к ПОСЛЕДНЕМУ сообщению пользователя.
@@ -93,8 +93,9 @@ class GeminiClient implements ModelTransport {
   }
 
   /// Разбор HTTP-ответа (вынесен для тестов).
-  static String parseHttp(int status, String body) {
+  static String parseHttp(int status, String body, {String model = ''}) {
     if (status == 200) return _extractText(body);
+    if (isModelNotFound(status, body)) throw AiModelNotFound([model]);
     if (status == 429) {
       throw AiRateLimited(daily: body.contains('PerDay'));
     }
@@ -106,6 +107,19 @@ class GeminiClient implements ModelTransport {
       throw const AiUnavailable('bad request');
     }
     throw AiUnavailable('http $status');
+  }
+
+  /// 404, либо 400 с текстом «модель не найдена / не поддерживается».
+  static bool isModelNotFound(int status, String body) {
+    if (status == 404) return true;
+    if (status != 400) return false;
+    final b = body.toLowerCase();
+    if (b.contains('api key') || b.contains('api_key')) return false;
+    return b.contains('model') &&
+        (b.contains('not found') ||
+            b.contains('is not supported') ||
+            b.contains('does not exist') ||
+            b.contains('invalid model'));
   }
 
   static String _extractText(String body) {

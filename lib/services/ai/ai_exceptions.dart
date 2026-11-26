@@ -56,3 +56,15 @@ class AiBlocked extends AiException {
       : super('Я не смог ответить на это сообщение. '
             'Попробуй переформулировать.');
 }
+
+/// Модель не найдена (404, либо 400 с текстом «model not found»).
+class AiModelNotFound extends AiException {
+  AiModelNotFound(List<String> models)
+      : models = List.unmodifiable(models),
+        super('Gemini не нашёл модель «${models.join('», «')}». '
+            'Скорее всего, имя написано неверно или модель закрыта для '
+            'вашего ключа. Проверь имена при сборке приложения: '
+            '--dart-define=GEMINI_MODEL_PRIMARY=... (основная) и '
+            '--dart-define=GEMINI_MODEL_FALLBACK=... (запасная).');
+  final List<String> models;
+}

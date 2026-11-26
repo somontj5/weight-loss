@@ -22,14 +22,24 @@ class ModelRouter {
   final QuotaManager _quota;
   final AiConfig _config;
 
+  /// Модели, которые Gemini назвал несуществующими: в этом запуске их
+  /// больше не опрашиваем.
+  final Set<String> _badModels = {};
+  Set<String> get badModels => Set.unmodifiable(_badModels);
+
   Future<RoutedResult> generate(
       {required String system,
       required List<ChatTurn> turns,
       List<Attachment> attachments = const []}) async {
     if (!_config.hasKey) throw const AiNoKey();
 
-    final candidates = await _quota.available();
-    if (candidates.isEmpty) throw const AiLimitReached();
+    final all = await _quota.available();
+    final candidates =
+        all.where((m) => !_badModels.contains(m.name)).toList();
+    if (candidates.isEmpty) {
+      if (_badModels.isNotEmpty) throw AiModelNotFound(_badModels.toList());
+      throw const AiLimitReached();
+    }
 
     AiException? last;
     for (final m in candidates) {
@@ -47,11 +57,16 @@ class ModelRouter {
         last = e;
       } on AiUnavailable catch (e) {
         last = e;
+      } on AiModelNotFound catch (e) {
+        _badModels.addAll(e.models);
+        last = e;
       } on AiOffline {
         rethrow; // со второй моделью сети не станет больше
       }
       // AiBadKey / AiBlocked / AiNoKey пробрасываются сами.
     }
+
+    if (last is AiModelNotFound) throw AiModelNotFound(_badModels.toList());
 
     // Все перебраны. Если лимит кончился у всех — говорим об этом честно.
     if (last is AiRateLimited && last.daily && (await _quota.available()).isEmpty) {

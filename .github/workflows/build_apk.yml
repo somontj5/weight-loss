@@ -30,7 +30,12 @@ jobs:
 
       # Redmi 9C (32-bit) -> armeabi-v7a, Redmi 8 Pro (64-bit) -> arm64-v8a
       - name: Build release APKs (split per ABI)
-        run: flutter build apk --release --split-per-abi --target-platform android-arm,android-arm64
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: >
+          flutter build apk --release --split-per-abi
+          --target-platform android-arm,android-arm64
+          --dart-define=GEMINI_API_KEY="$GEMINI_API_KEY"
 
       - uses: actions/upload-artifact@v4
         with:

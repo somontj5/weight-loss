@@ -10,7 +10,7 @@ import 'package:weightloss/ui/theme/app_theme.dart';
 import 'package:weightloss/ui/widgets/chunky_button.dart';
 import 'package:weightloss/ui/widgets/fitty_avatar.dart';
 import 'package:weightloss/ui/providers/app_state.dart';
-import 'package:weightloss/ui/screens/onboarding_screen.dart';
+import 'package:weightloss/ui/screens/profile_edit_screen.dart';
 import 'package:weightloss/ui/screens/workout_player_screen.dart';
 
 /// Раздел «Тренировка»: данные пользователя, запрос плана у ИИ-тренера,
@@ -37,8 +37,6 @@ class WorkoutScreen extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
                       children: [
                         _ProfileCard(hub: hub),
-                        const SizedBox(height: 12),
-                        _ParamsCard(hub: hub),
                         if (hub.notice != null) ...[
                           const SizedBox(height: 12),
                           _Notice(text: hub.notice!, onClose: hub.dismissNotice),
@@ -128,9 +126,11 @@ class _ProfileCard extends StatelessWidget {
     return GestureDetector(
       onTap: () async {
         final app = context.read<AppState>();
+        final initial = app.profile;
+        if (initial == null) return;
         final res = await Navigator.of(context).push<bool>(MaterialPageRoute(
-          builder: (_) => OnboardingScreen(
-              initial: app.profile, initialWeeks: app.goal?.weeks),
+          builder: (_) => ProfileEditScreen(
+              initial: initial, initialWeeks: app.goal?.weeks),
         ));
         if (res == true && app.profile != null) {
           hub.syncFromProfile(app.profile!);
@@ -167,7 +167,7 @@ class _ProfileCard extends StatelessWidget {
                             p.level.label,
                             if (p.waistCm != null) 'талия ${n(p.waistCm!)}',
                             if (p.hipsCm != null) 'бёдра ${n(p.hipsCm!)}',
-                            if (p.chestCm != null) 'грудь ${n(p.chestCm!)}',
+                            if (p.chestCm != null) 'грудная клетка ${n(p.chestCm!)}',
                           ].join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -187,7 +187,7 @@ class _ProfileCard extends StatelessWidget {
                                 fontWeight: FontWeight.w900,
                                 color: AppColors.text)),
                         SizedBox(height: 2),
-                        Text('Вес, возраст, обхваты',
+                        Text('Вес, возраст, замеры',
                             style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -198,148 +198,6 @@ class _ProfileCard extends StatelessWidget {
             const Icon(Icons.edit_rounded, color: AppColors.textSoft, size: 20),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ParamsCard extends StatelessWidget {
-  const _ParamsCard({required this.hub});
-
-  final WorkoutHub hub;
-
-  Future<void> _editKcal(BuildContext context) async {
-    final c = TextEditingController(
-        text: hub.caloriesEaten > 0 ? '${hub.caloriesEaten}' : '');
-    final v = await showDialog<int>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: const Text('Съедено сегодня',
-            style: TextStyle(fontWeight: FontWeight.w900)),
-        content: TextField(
-          controller: c,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(suffixText: 'ккал'),
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w900, color: AppColors.textSoft))),
-          TextButton(
-              onPressed: () =>
-                  Navigator.pop(context, int.tryParse(c.text.trim()) ?? 0),
-              child: const Text('Сохранить',
-                  style: TextStyle(
-                      fontWeight: FontWeight.w900, color: AppColors.primary))),
-        ],
-      ),
-    );
-    c.dispose();
-    if (v != null) hub.setCaloriesEaten(v);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _card(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Сколько времени есть?',
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.text)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              for (final m in const [10, 15, 20, 30, 45]) ...[
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => hub.setMinutes(m),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: hub.minutes == m
-                            ? AppColors.primarySoft
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color: hub.minutes == m
-                                ? AppColors.primary
-                                : AppColors.border,
-                            width: 2),
-                      ),
-                      child: Text('$m',
-                          style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: hub.minutes == m
-                                  ? AppColors.primary
-                                  : AppColors.text)),
-                    ),
-                  ),
-                ),
-                if (m != 45) const SizedBox(width: 6),
-              ],
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.only(top: 4, left: 2),
-            child: Text('минут',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textSoft)),
-          ),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: () => _editKcal(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.restaurant_rounded,
-                      color: AppColors.mint, size: 22),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text('Съедено сегодня',
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.text)),
-                  ),
-                  Text(
-                    hub.caloriesEaten > 0
-                        ? '${hub.caloriesEaten} ккал'
-                        : 'указать',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: hub.caloriesEaten > 0
-                            ? AppColors.text
-                            : AppColors.primary),
-                  ),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.chevron_right_rounded,
-                      color: AppColors.textSoft),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -8,7 +8,7 @@ import 'package:weightloss/domain/notifications/notification_service.dart';
 import 'package:weightloss/ui/providers/app_state.dart';
 import 'package:weightloss/ui/providers/chat_provider.dart';
 import 'package:weightloss/ui/providers/workout_hub.dart';
-import 'package:weightloss/ui/screens/onboarding_screen.dart';
+import 'package:weightloss/ui/screens/profile_edit_screen.dart';
 import 'package:weightloss/ui/theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -135,10 +135,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _editProfile() async {
     final app = context.read<AppState>();
     final hub = context.read<WorkoutHub>();
+    final initial = app.profile;
+    if (initial == null) return;
     final res = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => OnboardingScreen(
-          initial: app.profile,
+        builder: (_) => ProfileEditScreen(
+          initial: initial,
           initialWeeks: app.goal?.weeks,
         ),
       ),

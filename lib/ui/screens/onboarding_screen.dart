@@ -9,14 +9,11 @@ import 'package:weightloss/ui/theme/app_theme.dart';
 import 'package:weightloss/ui/widgets/chunky_button.dart';
 import 'package:weightloss/ui/widgets/fitty_avatar.dart';
 
-/// Регистрация короткими шагами. Только измеримое: всё остальное
-/// Фитти узнаёт в разговоре. В режиме правки ([initial] != null)
-/// открывается с текущими цифрами.
+/// Регистрация короткими шагами (только первый запуск). Только измеримое:
+/// всё остальное Фитти узнаёт в разговоре. Править данные потом можно на
+/// экране [ProfileEditScreen], сюда повторно не возвращаемся.
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key, this.initial, this.initialWeeks, this.onDone});
-
-  final Profile? initial;
-  final int? initialWeeks;
+  const OnboardingScreen({super.key, this.onDone});
 
   /// Вызывается после сохранения (для приветствия в чате).
   final Future<void> Function(Profile profile, NutritionNorm norm, int weeks)?
@@ -49,29 +46,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _weeks = 12;
   int _minutes = 20;
   String _slot = 'evening';
-
-  bool get _editing => widget.initial != null;
-
-  @override
-  void initState() {
-    super.initState();
-    final p = widget.initial;
-    if (p != null) {
-      _name.text = p.name;
-      _sex = p.sex;
-      _age.text = '${p.ageAt(DateTime.now())}';
-      _height.text = _fmt(p.heightCm);
-      _weight.text = _fmt(p.weightKg);
-      _target.text = _fmt(p.targetWeightKg);
-      _waist.text = p.waistCm == null ? '' : _fmt(p.waistCm!);
-      _chest.text = p.chestCm == null ? '' : _fmt(p.chestCm!);
-      _hips.text = p.hipsCm == null ? '' : _fmt(p.hipsCm!);
-      _minutes = p.trainingMinutes;
-      _slot = p.trainingSlot;
-      _weeks = widget.initialWeeks ?? 12;
-      _i = 1; // без приветствия
-    }
-  }
 
   @override
   void dispose() {
@@ -158,10 +132,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _back() {
-    if (_i == 0 || (_editing && _i == 1)) {
-      if (_editing) Navigator.of(context).maybePop();
-      return;
-    }
+    if (_i == 0) return;
     setState(() {
       _error = null;
       _i--;
@@ -172,13 +143,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_saving) return;
     setState(() => _saving = true);
     final state = context.read<AppState>();
-    final nav = Navigator.of(context);
     final p = _build();
     try {
-      final norm = await state.saveProfile(p,
-          weeks: _weeks, source: _editing ? 'settings' : 'onboarding');
+      final norm =
+          await state.saveProfile(p, weeks: _weeks, source: 'onboarding');
       await widget.onDone?.call(p, norm, _weeks);
-      if (_editing && nav.mounted) nav.pop(true);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -198,27 +167,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 20, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: (_i == 0 || (!_editing && _i == 0)) ? null : _back,
-                    icon: Icon(Icons.arrow_back_rounded,
-                        color: _i == 0 ? Colors.transparent : AppColors.textSoft),
-                  ),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 14,
-                        backgroundColor: AppColors.border,
-                        color: AppColors.mint,
+            // Стрелка «назад» занимает отдельную строку фиксированной высоты
+            // (на первом шаге её просто нет), а полоска прогресса всегда стоит
+            // на одном и том же месте и не «ездит» между шагами.
+            SizedBox(
+              height: 48,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _i == 0
+                    ? const SizedBox.shrink()
+                    : IconButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        onPressed: _back,
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: AppColors.textSoft),
                       ),
-                    ),
-                  ),
-                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 14,
+                  backgroundColor: AppColors.border,
+                  color: AppColors.mint,
+                ),
               ),
             ),
             Expanded(
@@ -292,7 +267,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   String _buttonLabel(_Step s) => switch (s) {
         _Step.hello => 'ПОЕХАЛИ',
-        _Step.result => _editing ? 'СОХРАНИТЬ' : 'НАЧАТЬ',
+        _Step.result => 'НАЧАТЬ',
         _ => 'ПРОДОЛЖИТЬ',
       };
 
@@ -391,7 +366,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onChanged: (_) => setState(() => _error = null),
             onSubmitted: (_) => _next(),
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.start,
             decoration: _dec(hint: 'Имя'),
           ),
         ]);
@@ -427,11 +402,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ]);
       case _Step.girths:
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _title('Обхваты, см',
-              sub: 'Необязательно. Помогут видеть прогресс, когда вес стоит.'),
+          _title('Замеры тела',
+              sub: 'Необязательно, в сантиметрах. Помогут видеть прогресс, когда вес стоит.'),
           _girth(_waist, 'Талия'),
           const SizedBox(height: 12),
-          _girth(_chest, 'Грудь'),
+          _girth(_chest, 'Грудная клетка'),
           const SizedBox(height: 12),
           _girth(_hips, 'Бёдра'),
         ]);
